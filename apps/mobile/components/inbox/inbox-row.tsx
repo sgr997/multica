@@ -20,13 +20,16 @@ import { getInboxDisplayTitle } from "@/lib/inbox-display";
 import { useIssueStatuses } from "@/lib/use-issue-statuses";
 import { timeAgo } from "@/lib/time-ago";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   item: InboxItem;
+  /** Unread updates inside this conversation; 0 hides the badge. */
+  unreadCount?: number;
   onPress: () => void;
 }
 
-export function InboxRow({ item, onPress }: Props) {
+export function InboxRow({ item, unreadCount = 0, onPress }: Props) {
   const isUnread = !item.read;
   const { categoryOf, colorOf, iconOf } = useIssueStatuses();
   const displayTitle = getInboxDisplayTitle(item);
@@ -38,12 +41,10 @@ export function InboxRow({ item, onPress }: Props) {
       <View className="flex-row gap-3">
         <ActorAvatar type={actorType} id={actorId} size={36} showPresence />
         <View className="flex-1 min-w-0">
-          {/* Top row: [unread dot + title] (left) | [status icon] (right) */}
+          {/* Top row: [unread badge + title] (left) | [status icon] (right) */}
           <View className="flex-row items-center gap-2">
             <View className="flex-row items-center gap-1.5 flex-1 min-w-0">
-              {isUnread ? (
-                <View className="size-1.5 rounded-full bg-brand shrink-0" />
-              ) : null}
+              {unreadCount > 0 ? <UnreadCountBadge count={unreadCount} /> : null}
               <Text
                 className={cn(
                   "flex-1 text-sm",
@@ -100,5 +101,28 @@ export function InboxRow({ item, onPress }: Props) {
         </View>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * Numeric unread badge on the row.
+ *
+ * The tab badge answers "how many conversations are unread"; this answers
+ * "how many updates landed in this one". It is derived from the inbox cache
+ * (`countUnreadByGroup`), so the optimistic mark-read patch drops it in the
+ * same frame as the tap — no round trip, and archiving (single, swipe or
+ * batch) removes the row it belongs to.
+ */
+function UnreadCountBadge({ count }: { count: number }) {
+  const { t } = useT("inbox");
+  return (
+    <View
+      accessibilityLabel={t("row.unread_count", { count })}
+      className="h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-brand px-1"
+    >
+      <Text className="text-[11px] font-semibold text-brand-foreground">
+        {count > 99 ? "99+" : String(count)}
+      </Text>
+    </View>
   );
 }

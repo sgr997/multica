@@ -7,10 +7,17 @@
  * inline appear as standalone cards. Long-press actions highlight the target
  * without adding a border that would shift the layout.
  */
-import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
-import { FlashList } from "@shopify/flash-list";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
+import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useQuery } from "@tanstack/react-query";
 import type {
   Agent,
@@ -28,6 +35,15 @@ import { ImageSequenceProvider } from "@/lib/markdown/image-sequence";
 import { failureReasonKey } from "@/lib/failure-reason-label";
 import { formatElapsedMs } from "@/lib/format-elapsed";
 import { cn } from "@/lib/utils";
+import {
+  followAfterUserScroll,
+  isAtBottom,
+  shouldAutoScrollToLatest,
+  type ChatScrollMetrics,
+} from "@/lib/chat-scroll-follow";
+import { useReduceMotion } from "@/lib/use-reduce-motion";
+import { useColorScheme } from "@/lib/use-color-scheme";
+import { THEME } from "@/lib/theme";
 import { useChatSelectStore } from "@/data/chat-select-store";
 import { useChatMessageLongPress } from "./message-long-press";
 import { ChatEmptyState } from "./chat-empty-state";
@@ -87,6 +103,104 @@ export function ChatMessageList({
   // Pressable below. When null, the Pressable stays disabled and every tap
   // passes through to the list cells / bubble long-press wrappers normally.
   const selectingId = useChatSelectStore((s) => s.selectingId);
+
+  // ── Follow-the-latest state ────────────────────────────────────────────
+  //
+  // `following` is the reader's intent, not a measurement: it starts true
+  // (sessions open at the bottom) and only a completed user gesture may flip
+  // it. Content growing below the viewport — a streaming reply, a Late
+  // image — also increases the distance from the bottom, so deriving intent
+  // from geometry alone would stop following the moment the agent answers.
+  const listRef = useRef<FlashListRef<ChatMessage>>(null);
+  const followingRef = useRef(true);
+  const userInteractingRef = useRef(false);
+  const metricsRef = useRef<ChatScrollMetrics>({
+    contentHeight: 0,
+    offsetY: 0,
+    viewportHeight: 0,
+  });
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+
+  const lastMessage = messages[messages.length - 1];
+  const lastMessageIsUser = lastMessage?.role === "user";
+  const lastMessageId = lastMessage?.id ?? null;
+  // True for exactly the content-size pass that follows a message the reader
+  // just sent. Sending is an explicit "take me to the newest" request even
+  // from the middle of history — but it must not become a standing licence
+  // to auto-scroll while the agent streams back, so the flag is consumed.
+  const sentMessageJumpRef = useRef(false);
+  const lastMessageIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previousId = lastMessageIdRef.current;
+    lastMessageIdRef.current = lastMessageId;
+    if (previousId !== null && previousId !== lastMessageId && lastMessageIsUser) {
+      sentMessageJumpRef.current = true;
+    }
+  }, [lastMessageId, lastMessageIsUser]);
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      metricsRef.current = {
+        contentHeight: contentSize.height,
+        offsetY: contentOffset.y,
+        viewportHeight: layoutMeasurement.height,
+      };
+      // Programmatic scrolls and content growth still report offsets; they
+      // must not be mistaken for the reader moving away from the bottom.
+      if (!userInteractingRef.current) return;
+      const atBottom = isAtBottom(metricsRef.current);
+      followingRef.current = atBottom;
+      setShowJumpToLatest(!atBottom);
+    },
+    [],
+  );
+
+  const settleFollowState = useCallback(() => {
+    userInteractingRef.current = false;
+    const atBottom = followAfterUserScroll(metricsRef.current);
+    followingRef.current = atBottom;
+    setShowJumpToLatest(!atBottom);
+  }, []);
+
+  const startUserInteraction = useCallback(() => {
+    userInteractingRef.current = true;
+    // Any user-initiated scroll exits message text-selection mode —
+    // matches iMessage's behavior where scrolling implicitly commits /
+    // dismisses the selection caret.
+    useChatSelectStore.getState().clear();
+  }, []);
+
+  /**
+   * Content-size changes are the single funnel for "something new is on
+   * screen": a new message, the live task trace growing token by token, an
+   * image finishing its decode, or the status line disappearing when the
+   * reply lands. Scroll only when the reader is pinned to the bottom.
+   */
+  const handleContentSizeChange = useCallback(() => {
+    if (
+      !shouldAutoScrollToLatest({
+        following: followingRef.current,
+        userInteracting: userInteractingRef.current,
+        lastMessageIsUser: sentMessageJumpRef.current,
+      })
+    ) {
+      return;
+    }
+    sentMessageJumpRef.current = false;
+    listRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  const reduceMotion = useReduceMotion();
+  const jumpToLatest = useCallback(() => {
+    followingRef.current = true;
+    setShowJumpToLatest(false);
+    listRef.current?.scrollToEnd({ animated: !reduceMotion });
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+      () => {},
+    );
+  }, [reduceMotion]);
 
   // Every image in this session, in message order (MUL-5752), so tapping one
   // opens the lightbox at its position and a swipe walks the rest.
@@ -152,6 +266,7 @@ export function ChatMessageList({
     // also dismiss, matching iOS Notes / iMessage behaviour. Scroll
     // gestures are unaffected (Pressable only intercepts non-drag taps).
     <ImageSequenceProvider blocks={imageBlocks}>
+    <View style={{ flex: 1 }}>
     <Pressable
       onPress={
         selectingId
@@ -161,13 +276,13 @@ export function ChatMessageList({
       disabled={!selectingId}
       style={{ flex: 1 }}
     >
-    {/* `key` on first message id forces remount on session switch so
-        `startRenderingFromBottom` re-fires and we land at the new
-        session's bottom (instead of inheriting the previous session's
-        scroll position). Cheap because sessions are switched, not
-        re-rendered every keystroke. */}
+    {/* No `key` here on purpose: the chat screen remounts this whole
+        component when the session changes, so the list, its follow intent
+        and the jump-to-latest chip all start clean. Keying the list by the
+        first message id would additionally remount it whenever an older
+        message is prepended, dropping the reader at offset 0. */}
     <FlashList
-      key={messages[0]?.id ?? "empty"}
+      ref={listRef}
       data={messages}
       keyExtractor={(m) => m.id}
       renderItem={({ item }) => (
@@ -201,20 +316,25 @@ export function ChatMessageList({
         paddingTop: 12,
         paddingBottom: 16,
       }}
-      // Chat behavior: initial render at the bottom; when new messages
-      // arrive AND the user is within 20% of the bottom, auto-scroll.
-      // Reading history (further than 20% up) is preserved. This single
-      // prop replaces the entire FlatList-era guard ref dance.
+      // Initial render starts at the bottom (newest message), and MVCP keeps
+      // a reader's position stable when rows above them resize. Autoscroll
+      // is NOT delegated to MVCP: it keys off distance-from-bottom, so the
+      // footer growing during streaming would stop it. Follow-the-latest is
+      // owned by `handleContentSizeChange` + the gesture state above.
       maintainVisibleContentPosition={{
-        autoscrollToBottomThreshold: 0.2,
         startRenderingFromBottom: true,
       }}
       // Any user-initiated scroll exits message text-selection mode —
       // matches iMessage's behavior where scrolling implicitly commits /
       // dismisses the selection caret. Hooks both drag-start and the
       // momentum kick after a flick so a fast scroll can't escape.
-      onScrollBeginDrag={() => useChatSelectStore.getState().clear()}
-      onMomentumScrollBegin={() => useChatSelectStore.getState().clear()}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      onScrollBeginDrag={startUserInteraction}
+      onMomentumScrollBegin={startUserInteraction}
+      onScrollEndDrag={settleFollowState}
+      onMomentumScrollEnd={settleFollowState}
+      onContentSizeChange={handleContentSizeChange}
       // iMessage-style keyboard dismissal: dragging the list pulls the
       // keyboard down with the finger (iOS); tapping empty space between
       // bubbles dismisses it. `handled` keeps Pressables inside bubbles
@@ -223,12 +343,45 @@ export function ChatMessageList({
       keyboardShouldPersistTaps="handled"
     />
     </Pressable>
+    {showJumpToLatest ? <JumpToLatestButton onPress={jumpToLatest} /> : null}
+    </View>
     </ImageSequenceProvider>
   );
 }
 
 function MessageSeparator() {
   return <View style={{ height: 12 }} />;
+}
+
+/**
+ * Floating "back to latest" affordance, shown only while the reader is
+ * scrolled up into history. Modeled on the issue timeline's "N new" chip —
+ * same shape, same position, so the two chat-like surfaces behave alike.
+ */
+function JumpToLatestButton({ onPress }: { onPress: () => void }) {
+  const { t } = useT("chat");
+  const { colorScheme } = useColorScheme();
+  const fg = THEME[colorScheme].primaryForeground;
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t("scroll.jump_to_latest_a11y")}
+      className="absolute bottom-3 self-center px-3.5 py-1.5 rounded-full bg-primary active:opacity-80 flex-row items-center gap-1.5"
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+        elevation: 4,
+      }}
+    >
+      <Ionicons name="arrow-down" size={14} color={fg} />
+      <Text className="text-xs font-semibold text-primary-foreground">
+        {t("scroll.jump_to_latest")}
+      </Text>
+    </Pressable>
+  );
 }
 
 function MessageRow({

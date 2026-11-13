@@ -14,6 +14,9 @@
     "archive_completed": "歸檔已完成項",
     "inbox_actions": "收件箱操作"
   },
+  "row": {
+    "unread_count_other": "{{count}} 則未讀"
+  },
   "filters": {
     "all": "全部",
     "unread": "未讀"

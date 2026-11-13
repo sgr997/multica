@@ -31,8 +31,10 @@ import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import {
+  countUnreadByGroup,
   deduplicateInboxItems,
   getInboxNavigationTarget,
+  inboxGroupKey,
 } from "@/lib/inbox-display";
 
 export default function Inbox() {
@@ -48,6 +50,13 @@ export default function Inbox() {
   // "Behavioral parity" → inbox dedup incident.
   const data = useMemo(
     () => deduplicateInboxItems(rawItems ?? []),
+    [rawItems],
+  );
+  // Unread badge per conversation, derived from the same cache the optimistic
+  // mutations patch — so a tap decrements the badge in the same frame, and
+  // archive / mark-all-read / swipe-archive all move it without a round trip.
+  const unreadByGroup = useMemo(
+    () => countUnreadByGroup(rawItems ?? []),
     [rawItems],
   );
   const markRead = useMarkInboxRead();
@@ -122,9 +131,14 @@ export default function Inbox() {
           </>
         }
       />
-      {isLoading ? (
+      {/* The list stays mounted whenever there is data. Only a first load or
+       *  a failure with nothing cached may replace it: a background refetch
+       *  that errors (foreground recovery, reconnect, WS invalidate) sets
+       *  `error` while `rawItems` is still cached, and swapping the list out
+       *  then would unmount it and lose the scroll position. */}
+      {isLoading && !rawItems ? (
         <InboxLoading />
-      ) : error ? (
+      ) : error && !rawItems ? (
         <View className="px-4 gap-3 pt-4">
           <Text className="text-sm text-destructive">
             {t("errors.load_failed", {
@@ -148,6 +162,7 @@ export default function Inbox() {
           renderItem={({ item }) => (
             <SwipeableInboxRow
               item={item}
+              unreadCount={unreadByGroup.get(inboxGroupKey(item)) ?? 0}
               onPress={() => onPressItem(item)}
               onArchive={() => archive.mutate(item.id)}
             />

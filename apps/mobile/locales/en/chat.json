@@ -86,6 +86,10 @@
     "new_chat": "New chat",
     "sessions_agent_picker": "Chat sessions and agent picker"
   },
+  "scroll": {
+    "jump_to_latest": "Jump to latest",
+    "jump_to_latest_a11y": "Scroll to the latest message"
+  },
   "title": {
     "fallback": "Chat",
     "this_agent": "This agent"

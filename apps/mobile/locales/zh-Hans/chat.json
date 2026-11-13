@@ -86,6 +86,10 @@
     "new_chat": "新建聊天",
     "sessions_agent_picker": "聊天会话和智能体选择器"
   },
+  "scroll": {
+    "jump_to_latest": "回到最新",
+    "jump_to_latest_a11y": "滚动到最新消息"
+  },
   "title": {
     "fallback": "聊天",
     "this_agent": "该智能体"

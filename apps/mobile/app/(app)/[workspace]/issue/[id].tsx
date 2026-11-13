@@ -10,7 +10,7 @@
  * Stack.Screen with title "Issue". We override that here once the data
  * lands so the navigation bar shows `MUL-123` (Linear-style).
  */
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -182,34 +182,51 @@ export default function IssueDetail() {
     );
   }, [issue, wsSlug, deleteIssue, isPinned, createPin, deletePin, t]);
 
+  // Header options must have a stable identity. Passing a freshly created
+  // `headerRight` closure inside an object literal makes react-navigation
+  // re-apply the header on every render of this screen — including the
+  // re-renders caused by agent-task queries ticking in the badge — and each
+  // re-application re-runs the native header layout over the list. Memoising
+  // keeps the header (and the list beneath it) untouched unless something it
+  // actually displays changes.
+  const headerRight = useCallback(
+    () => (
+      <View className="flex-row items-center gap-2">
+        {/* Ambient agent-working badge — renders null when no active tasks,
+         *  so it doesn't crowd the header in the common case. See
+         *  agent-header-badge.tsx. */}
+        <AgentHeaderBadge issueId={id} />
+        <IconButton
+          name="ellipsis-horizontal"
+          onPress={onPressMore}
+          accessibilityLabel={t("menu.issue_actions")}
+        />
+      </View>
+    ),
+    [id, onPressMore, t],
+  );
+  const screenOptions = useMemo(
+    () => ({
+      title: issue?.identifier ?? t("navigation:routes.issue"),
+      headerBackTitle: t("common:actions.back"),
+      headerRight: issue ? headerRight : undefined,
+    }),
+    [issue, t, headerRight],
+  );
+
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          title: issue?.identifier ?? t("navigation:routes.issue"),
-          headerBackTitle: t("common:actions.back"),
-          headerRight: issue
-            ? () => (
-                <View className="flex-row items-center gap-2">
-                  {/* Ambient agent-working badge — renders null when no
-                   *  active tasks, so it doesn't crowd the header in the
-                   *  common case. See agent-header-badge.tsx. */}
-                  <AgentHeaderBadge issueId={id} />
-                  <IconButton
-                    name="ellipsis-horizontal"
-                    onPress={onPressMore}
-                    accessibilityLabel={t("menu.issue_actions")}
-                  />
-                </View>
-              )
-            : undefined,
-        }}
-      />
-      {detail.isLoading ? (
+      <Stack.Screen options={screenOptions} />
+      {/* Loading / error only replace the content while there is nothing to
+       *  show. A background refetch that fails (foreground recovery, WS
+       *  invalidate, pull-to-refresh) sets `detail.error` while `issue` is
+       *  still cached — swapping the timeline out for the error screen then
+       *  unmounts the list and loses the reader's scroll position. */}
+      {detail.isLoading && !issue ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
         </View>
-      ) : detail.error || !issue ? (
+      ) : !issue ? (
         <View className="flex-1 items-center justify-center px-6 gap-3">
           <Text className="text-sm text-destructive text-center">
             {t("errors.load_failed", {

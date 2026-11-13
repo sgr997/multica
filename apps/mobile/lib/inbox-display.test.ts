@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { InboxItem } from "@multica/core/types";
 import {
+  countUnreadByGroup,
   deduplicateInboxItems,
   getAutopilotQuotaBody,
   getInboxDisplayTitle,
   getInboxNavigationTarget,
+  inboxGroupKey,
 } from "./inbox-display";
 
 function item(overrides: Partial<InboxItem>): InboxItem {
@@ -149,5 +151,48 @@ describe("getAutopilotQuotaBody", () => {
         }),
       ),
     ).toBe("Readable server fallback");
+  });
+});
+
+describe("inboxGroupKey", () => {
+  it("groups by issue so every notification for one issue shares a row", () => {
+    expect(inboxGroupKey(item({ id: "a", issue_id: "issue-9" }))).toBe(
+      "issue-9",
+    );
+  });
+
+  it("falls back to the item id for notices without an issue", () => {
+    expect(inboxGroupKey(item({ id: "notice-1", issue_id: null }))).toBe(
+      "notice-1",
+    );
+  });
+});
+
+describe("countUnreadByGroup", () => {
+  it("counts only unread, non-archived updates within a conversation", () => {
+    const counts = countUnreadByGroup([
+      item({ id: "a1", issue_id: "issue-1", read: false }),
+      item({ id: "a2", issue_id: "issue-1", read: false }),
+      item({ id: "a3", issue_id: "issue-1", read: true }),
+      item({ id: "b1", issue_id: "issue-2", read: false, archived: true }),
+      item({ id: "c1", issue_id: null, read: false }),
+    ]);
+
+    expect(counts.get("issue-1")).toBe(2);
+    expect(counts.has("issue-2")).toBe(false);
+    expect(counts.get("c1")).toBe(1);
+  });
+
+  it("drops a conversation to zero once the read patch lands", () => {
+    const items = [
+      item({ id: "a1", issue_id: "issue-1", read: false }),
+      item({ id: "a2", issue_id: "issue-1", read: false }),
+    ];
+    expect(countUnreadByGroup(items).get("issue-1")).toBe(2);
+    expect(
+      countUnreadByGroup(items.map((i) => ({ ...i, read: true }))).get(
+        "issue-1",
+      ),
+    ).toBeUndefined();
   });
 });

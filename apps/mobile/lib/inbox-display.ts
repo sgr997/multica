@@ -9,6 +9,47 @@
 import type { InboxItem } from "@multica/core/types";
 import { i18n } from "@/lib/i18n/singleton";
 
+/**
+ * Conversation key used by inbox grouping.
+ *
+ * The inbox renders one row per issue (Linear-style), so every row's badge
+ * and `deduplicateInboxItems` below must group by exactly this key — if the
+ * two drifted apart a row could show a count for a different conversation.
+ * Items without an issue (autopilot notices, quick-create outcomes) are their
+ * own group.
+ */
+export function inboxGroupKey(item: InboxItem): string {
+  return item.issue_id ?? item.id;
+}
+
+/**
+ * Unread counts per conversation, for the numeric badge on each inbox row.
+ *
+ * Counts the rows the current list holds, so it moves with the same cache
+ * every optimistic mutation patches:
+ *   - `useMarkInboxRead` flips `read` synchronously (and on every sibling of
+ *     the same issue), so opening a row drops its badge in the same frame.
+ *   - archiving flips `archived`, which both this count and the dedupe skip.
+ *
+ * Note the tab badge is a different number by design: it comes from the
+ * server's `unread-summary`, which counts *conversations* whose newest row
+ * is unread (see `CountUnreadInboxByWorkspace`). A row badge here counts
+ * unread updates *within* one conversation, so "3" on a row and "1" in the
+ * tab can both be correct for the same conversation. With at most one unread
+ * row per conversation the two sums agree.
+ */
+export function countUnreadByGroup(
+  items: InboxItem[],
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    if (item.archived || item.read) continue;
+    const key = inboxGroupKey(item);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 function formatResetAt(value: string | undefined): string {
   if (!value) return "";
   const date = new Date(value);
@@ -138,7 +179,7 @@ export function deduplicateInboxItems(items: InboxItem[]): InboxItem[] {
   const active = items.filter((i) => !i.archived);
   const groups = new Map<string, InboxItem[]>();
   for (const item of active) {
-    const key = item.issue_id ?? item.id;
+    const key = inboxGroupKey(item);
     const group = groups.get(key) ?? [];
     group.push(item);
     groups.set(key, group);

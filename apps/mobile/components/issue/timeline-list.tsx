@@ -14,6 +14,7 @@ import {
   Pressable,
   RefreshControl,
   View,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ViewToken,
@@ -39,6 +40,11 @@ import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import { useCommentSelectStore } from "@/data/comment-select-store";
+import {
+  recordedUserOffset,
+  shouldRestoreOffsetAfterResize,
+  viewportChanged,
+} from "@/lib/scroll-offset-guard";
 
 interface Props {
   issue: Issue;
@@ -126,10 +132,25 @@ export function TimelineList({
   }, [issue.description, issueAttachments, data]);
 
   const listRef = useRef<FlashListRef<TimelineRow>>(null);
+  // Last offset the *reader* chose (drag or momentum in flight). Layout-
+  // induced re-anchors and programmatic scrolls never write it, so it is
+  // safe to re-apply after a viewport resize.
+  const userOffsetRef = useRef(0);
+  const userDraggingRef = useRef(false);
+  const viewportHeightRef = useRef(0);
+  const restoreRafRef = useRef<number | null>(null);
   // Gates single-shot per (commentId, nonce) tuple. Re-tap from inbox
   // bumps the nonce → ref no longer matches → effect re-fires.
   const lastStampRef = useRef<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (restoreRafRef.current != null) {
+        cancelAnimationFrame(restoreRafRef.current);
+      }
+    };
+  }, []);
 
   // ── "New since last view" divider ─────────────────────────────────────
   // Snapshot the last-viewed timestamp ONCE on mount. Subsequent WS
@@ -184,6 +205,11 @@ export function TimelineList({
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      userOffsetRef.current = recordedUserOffset(
+        userOffsetRef.current,
+        contentOffset.y,
+        userDraggingRef.current,
+      );
       const distFromBottom =
         contentSize.height - (contentOffset.y + layoutMeasurement.height);
       const wasAtBottom = isAtBottomRef.current;
@@ -195,6 +221,59 @@ export function TimelineList({
       }
     },
     [newCount],
+  );
+
+  // ── Scroll-offset ownership across viewport changes ───────────────────
+  //
+  // Buttons in this screen's navigation header (the running-agent badge and
+  // the "…" menu) do not scroll anything, but tapping them takes focus away
+  // from the inline composer, which collapses and hands the list a taller
+  // viewport in the same frame. FlashList's MVCP re-anchors content on that
+  // resize and can snap a mid-timeline reader back to the top. Re-applying
+  // the recorded offset after the resize keeps header interactions
+  // side-effect free. Same guard covers the sheet dismissals and the offline
+  // strip appearing above the navigator.
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextHeight = event.nativeEvent.layout.height;
+      const resized = viewportChanged(viewportHeightRef.current, nextHeight);
+      viewportHeightRef.current = nextHeight;
+      if (!resized) return;
+      // A reader who was at the bottom should stay at the bottom when the
+      // viewport changes (keyboard away, sheet dismissed): re-pinning to the
+      // end is more faithful than replaying an old pixel offset that no
+      // longer reaches the newest row.
+      const wasAtBottom = isAtBottomRef.current;
+      if (
+        !wasAtBottom &&
+        !shouldRestoreOffsetAfterResize({
+          savedOffset: userOffsetRef.current,
+          userInteracting: userDraggingRef.current,
+          hasDeepLinkTarget: !!highlightCommentId,
+        })
+      ) {
+        return;
+      }
+      const target = userOffsetRef.current;
+      // Let the resize settle (and any re-anchor it triggered) before
+      // re-applying; two frames covers the native layout + MVCP pass.
+      if (restoreRafRef.current != null) cancelAnimationFrame(restoreRafRef.current);
+      restoreRafRef.current = requestAnimationFrame(() => {
+        restoreRafRef.current = requestAnimationFrame(() => {
+          restoreRafRef.current = null;
+          if (userDraggingRef.current) return;
+          if (wasAtBottom) {
+            listRef.current?.scrollToEnd({ animated: false });
+          } else {
+            listRef.current?.scrollToOffset({
+              offset: target,
+              animated: false,
+            });
+          }
+        });
+      });
+    },
+    [highlightCommentId],
   );
 
   const onJumpToNew = useCallback(() => {
@@ -306,19 +385,26 @@ export function TimelineList({
     </View>
   );
 
-  // When a fresh inbox deep-link arrives AND timeline data has loaded, force
-  // a FlashList remount so `getInitialScrollIndex()` re-runs with
-  // `startRenderingFromBottom: true` and lands on the last data item. If we
-  // mounted before data arrived, FlashList's one-shot initial-scroll
-  // (useRecyclerViewController.applyInitialScrollIndex, gated on
-  // `initialScrollCompletedRef`) would have already declared completion at
-  // length 0 and never re-fire. Switching the key when data goes empty →
-  // non-empty under a live highlight is the cheapest way to re-arm it.
-  const hasData = dataWithDivider.length > 0;
-  const flashListKey =
-    highlightCommentId && hasData
-      ? `hl-${highlightNonce ?? "0"}`
-      : "list";
+  // Fresh inbox deep-link: land on the newest row once the timeline has data.
+  //
+  // This used to be implemented by remounting the FlashList (`key` changing
+  // to `hl-<nonce>` so its one-shot initial scroll re-ran). A remount throws
+  // away the whole native scroll view: whenever the timeline cache
+  // momentarily emptied and refilled, the key flipped and the reader was
+  // dropped at the top. One stable list plus one explicit scroll per
+  // (comment, nonce) pair keeps the deep-link behaviour without ever
+  // detaching the list.
+  const landedStampRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!highlightCommentId || dataWithDivider.length === 0) return;
+    const stamp = `${highlightCommentId}:${highlightNonce ?? ""}`;
+    if (landedStampRef.current === stamp) return;
+    landedStampRef.current = stamp;
+    const frame = requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightCommentId, highlightNonce, dataWithDivider.length]);
 
   return (
     <ImageSequenceProvider blocks={imageBlocks}>
@@ -333,6 +419,7 @@ export function TimelineList({
           comment dismiss too, matching iOS Notes / iMessage. Scroll
           gestures are unaffected. */}
       <Pressable
+        onLayout={handleLayout}
         onPress={
           selectingId
             ? () => useCommentSelectStore.getState().clear()
@@ -342,7 +429,6 @@ export function TimelineList({
         style={{ flex: 1 }}
       >
       <FlashList
-        key={flashListKey}
         ref={listRef}
         data={dataWithDivider}
         keyExtractor={(row) => row.entry.id}
@@ -393,12 +479,23 @@ export function TimelineList({
         // matches iMessage's behavior where scrolling implicitly commits /
         // dismisses the selection caret. Hooks both drag-start and the
         // momentum kick after a flick so a fast scroll can't escape.
-        onScrollBeginDrag={() =>
-          useCommentSelectStore.getState().clear()
-        }
-        onMomentumScrollBegin={() =>
-          useCommentSelectStore.getState().clear()
-        }
+        //
+        // `userDraggingRef` brackets the whole gesture (drag + momentum) so
+        // the offset guard knows a 0-offset report is the reader's own doing.
+        onScrollBeginDrag={() => {
+          userDraggingRef.current = true;
+          useCommentSelectStore.getState().clear();
+        }}
+        onMomentumScrollBegin={() => {
+          userDraggingRef.current = true;
+          useCommentSelectStore.getState().clear();
+        }}
+        onScrollEndDrag={() => {
+          userDraggingRef.current = false;
+        }}
+        onMomentumScrollEnd={() => {
+          userDraggingRef.current = false;
+        }}
         viewabilityConfigCallbackPairs={viewabilityCallbackPairs}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

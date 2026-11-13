@@ -86,6 +86,10 @@
     "new_chat": "新建聊天",
     "sessions_agent_picker": "聊天會話和 AI 代理選擇器"
   },
+  "scroll": {
+    "jump_to_latest": "回到最新",
+    "jump_to_latest_a11y": "捲動到最新訊息"
+  },
   "title": {
     "fallback": "聊天",
     "this_agent": "該 AI 代理"

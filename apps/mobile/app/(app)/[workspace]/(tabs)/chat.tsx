@@ -539,6 +539,10 @@ export default function ChatTab() {
         className="flex-1"
       >
         <ChatMessageList
+          // Remount per session so the list's follow-the-latest refs and the
+          // "jump to latest" chip start clean — a new session always opens
+          // pinned to its newest message.
+          key={activeSessionId ?? "new-chat"}
           messages={visibleMessages}
           loading={messagesLoading}
           hasSessions={sessions.length > 0}
