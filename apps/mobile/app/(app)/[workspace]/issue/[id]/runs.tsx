@@ -9,8 +9,9 @@
  * the legacy `useRunsSheetStore` is gone since the route system is the
  * single source of truth for what's open.
  *
- * Past rows push a task-id-addressed execution-record screen. Keeping the
- * identifier in the route makes deep links and cache misses deterministic.
+ * Every row pushes a task-id-addressed execution-record screen. For a run
+ * still in flight that screen is its live transcript. Keeping the identifier
+ * in the route makes deep links and cache misses deterministic.
  */
 import { useMemo } from "react";
 import { ScrollView, View } from "react-native";

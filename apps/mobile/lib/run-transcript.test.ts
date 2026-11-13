@@ -9,6 +9,7 @@ import {
   isCancellableRunStatus,
   isRunTranscriptTaskId,
   RUN_TRANSCRIPT_PATHNAME,
+  runSurfaceRoute,
   runTranscriptRoute,
   runToolContext,
 } from "./run-transcript";
@@ -32,6 +33,21 @@ describe("run transcript route", () => {
     ).toBe(true);
     expect(isRunTranscriptTaskId("optimistic-task")).toBe(false);
     expect(isRunTranscriptTaskId(undefined)).toBe(false);
+  });
+
+  it("opens the only active run directly, but lists several", () => {
+    expect(runSurfaceRoute("acme", "issue-7", ["task-9"])).toEqual(
+      runTranscriptRoute("acme", "issue-7", "task-9"),
+    );
+    expect(runSurfaceRoute("acme", "issue-7", ["task-9", "task-10"])).toEqual({
+      pathname: "/[workspace]/issue/[id]/runs",
+      params: { workspace: "acme", id: "issue-7" },
+    });
+    // No active run yet still lands on the sheet (past runs live there).
+    expect(runSurfaceRoute("acme", "issue-7", [])).toEqual({
+      pathname: "/[workspace]/issue/[id]/runs",
+      params: { workspace: "acme", id: "issue-7" },
+    });
   });
 });
 

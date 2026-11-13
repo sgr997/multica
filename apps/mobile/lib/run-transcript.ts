@@ -19,6 +19,27 @@ export function runTranscriptRoute(
   } as const;
 }
 
+/**
+ * Where an agent-activity entry point should land.
+ *
+ * A single active task is the overwhelmingly common case, and the user is
+ * asking about *that* run's progress — send them straight to its live
+ * transcript instead of making them pick from a list of one. With several
+ * tasks in flight the list stays the only sane entry point.
+ */
+export function runSurfaceRoute(
+  workspace: string,
+  issueId: string,
+  activeTaskIds: readonly string[],
+) {
+  return activeTaskIds.length === 1
+    ? runTranscriptRoute(workspace, issueId, activeTaskIds[0])
+    : ({
+        pathname: "/[workspace]/issue/[id]/runs",
+        params: { workspace, id: issueId },
+      } as const);
+}
+
 export function isRunTranscriptTaskId(taskId: unknown): taskId is string {
   return typeof taskId === "string" && UUID_PATTERN.test(taskId);
 }

@@ -244,6 +244,8 @@
     "past": "历史",
     "title": "智能体运行",
     "open_transcript": "打开{{summary}}的执行记录",
+    "open_live_transcript": "打开{{summary}}的实时进度",
+    "live_progress": "实时进度",
     "transcript": {
       "title": "执行记录",
       "loading": "正在加载执行记录...",

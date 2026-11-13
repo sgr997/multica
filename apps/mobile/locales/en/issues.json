@@ -248,6 +248,8 @@
     "past": "Past",
     "title": "Agent Runs",
     "open_transcript": "Open execution record for {{summary}}",
+    "open_live_transcript": "Open live progress for {{summary}}",
+    "live_progress": "Live progress",
     "transcript": {
       "title": "Execution record",
       "loading": "Loading execution record...",

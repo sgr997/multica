@@ -1,7 +1,8 @@
 /**
- * Double-state row that lives inside `IssueHeaderCard`. Pushes the
- * `issue/[id]/runs` formSheet route — the Stack-header
- * `<AgentHeaderBadge>` pushes the same route.
+ * Double-state row that lives inside `IssueHeaderCard`. With one active run
+ * it goes straight to that run's live transcript; otherwise it opens the
+ * `issue/[id]/runs` formSheet route. The Stack-header
+ * `<AgentHeaderBadge>` behaves the same way.
  *
  *   ≥1 active task        → [agent avatars] (pulse) Working           ›
  *   0 active, ≥1 past     → 🕓 Runs · N                                ›
@@ -27,6 +28,7 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
+import { runSurfaceRoute } from "@/lib/run-transcript";
 
 interface Props {
   issueId: string;
@@ -65,10 +67,13 @@ export function AgentActivityRow({ issueId }: Props) {
     <Pressable
       onPress={() => {
         if (!wsSlug) return;
-        router.push({
-          pathname: "/[workspace]/issue/[id]/runs",
-          params: { workspace: wsSlug, id: issueId },
-        });
+        router.push(
+          runSurfaceRoute(
+            wsSlug,
+            issueId,
+            activeTasks.map((task) => task.id),
+          ),
+        );
       }}
       className="flex-row items-center gap-2 -mx-2 px-2 py-2 rounded-lg active:bg-secondary"
     >

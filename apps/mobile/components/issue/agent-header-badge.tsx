@@ -10,9 +10,9 @@
  * Apple HIG "Progress Indicators" + the agent-UX "ambient status badge"
  * pattern (https://www.aiuxdesign.guide/patterns/agent-status-monitoring).
  *
- * Tap pushes the `issue/[id]/runs` formSheet route — the in-card
- * AgentActivityRow does the same. One route, two entry points, no
- * duplicate sheet state.
+ * Tap opens the run itself when exactly one is active (live transcript),
+ * otherwise the `issue/[id]/runs` formSheet route — the in-card
+ * AgentActivityRow does the same. Two entry points, same destination.
  */
 import { Pressable } from "react-native";
 import { router } from "expo-router";
@@ -22,6 +22,7 @@ import { PulseDot } from "@/components/ui/pulse-dot";
 import { issueActiveTasksOptions } from "@/data/queries/issues";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useT } from "@/lib/i18n";
+import { runSurfaceRoute } from "@/lib/run-transcript";
 
 interface Props {
   issueId: string;
@@ -46,10 +47,13 @@ export function AgentHeaderBadge({ issueId }: Props) {
     <Pressable
       onPress={() => {
         if (!wsSlug) return;
-        router.push({
-          pathname: "/[workspace]/issue/[id]/runs",
-          params: { workspace: wsSlug, id: issueId },
-        });
+        router.push(
+          runSurfaceRoute(
+            wsSlug,
+            issueId,
+            active.map((task) => task.id),
+          ),
+        );
       }}
       hitSlop={8}
       accessibilityLabel={t("a11y.agent_working")}

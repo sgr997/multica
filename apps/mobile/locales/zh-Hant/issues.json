@@ -244,6 +244,8 @@
     "past": "歷史",
     "title": "AI 代理執行",
     "open_transcript": "開啟{{summary}}的執行記錄",
+    "open_live_transcript": "開啟{{summary}}的即時進度",
+    "live_progress": "即時進度",
     "transcript": {
       "title": "執行記錄",
       "loading": "正在載入執行記錄...",

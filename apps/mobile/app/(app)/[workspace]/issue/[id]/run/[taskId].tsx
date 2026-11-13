@@ -1,9 +1,11 @@
 import { ActivityIndicator, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import type { AgentTask } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
+import { PulseDot } from "@/components/ui/pulse-dot";
 import { RunTranscript } from "@/components/issue/run-transcript";
 import { issueTasksOptions } from "@/data/queries/issues";
 import { runTranscriptMessagesOptions } from "@/data/queries/chat";
@@ -11,7 +13,9 @@ import { useRunTranscriptRealtime } from "@/data/realtime/use-run-transcript-rea
 import { useActorLookup } from "@/data/use-actor-name";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useT } from "@/lib/i18n";
-import { isRunTranscriptTaskId } from "@/lib/run-transcript";
+import { formatElapsedSecs } from "@/lib/format-elapsed";
+import { isCancellableRunStatus, isRunTranscriptTaskId } from "@/lib/run-transcript";
+import { useElapsedSecs } from "@/lib/use-elapsed-secs";
 
 export default function RunTranscriptRoute() {
   const params = useLocalSearchParams<{ id?: string; taskId?: string }>();
@@ -76,9 +80,7 @@ export default function RunTranscriptRoute() {
               {getName("agent", task.agent_id)}
             </Text>
             <Text className="text-sm text-muted-foreground">{summary}</Text>
-            <Text className={statusClass(task.status)}>
-              {t(`runs.status.${task.status}`)}
-            </Text>
+            <RunStatusLine task={task} />
           </View>
         </View>
       }
@@ -101,7 +103,34 @@ function StateMessage({
   );
 }
 
+/**
+ * Status caption for the run header. Active runs get a pulse plus a live
+ * elapsed clock so the transcript reads as progress rather than a static
+ * record; terminal runs keep just the outcome.
+ */
+function RunStatusLine({ task }: { task: AgentTask }) {
+  const { t } = useT("issues");
+  const active = isCancellableRunStatus(task.status);
+  const elapsed = useElapsedSecs(task.started_at ?? task.created_at, active);
+
+  return (
+    <View className="flex-row items-center gap-1.5">
+      {active ? <PulseDot size={6} /> : null}
+      <Text className={statusClass(task.status)}>
+        {t(`runs.status.${task.status}`)}
+        {active ? (
+          <Text className="text-xs text-muted-foreground">
+            {" · "}
+            {formatElapsedSecs(elapsed)}
+          </Text>
+        ) : null}
+      </Text>
+    </View>
+  );
+}
+
 function statusClass(status: string): string {
   if (status === "failed") return "text-xs text-destructive";
+  if (status === "running" || status === "dispatched") return "text-xs text-brand";
   return "text-xs text-muted-foreground";
 }

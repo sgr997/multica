@@ -1,5 +1,11 @@
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useColorScheme } from "nativewind";
 import type { AgentTask, TaskMessagePayload } from "@multica/core/types";
@@ -12,8 +18,18 @@ import {
 } from "@/components/ui/collapsible";
 import { Markdown } from "@/lib/markdown";
 import { useT } from "@/lib/i18n";
-import { buildRunTranscriptEntries, getRunDiagnostics, runToolContext } from "@/lib/run-transcript";
+import {
+  buildRunTranscriptEntries,
+  getRunDiagnostics,
+  isCancellableRunStatus,
+  runToolContext,
+} from "@/lib/run-transcript";
 import type { RunTranscriptEntry } from "@/lib/run-transcript";
+import {
+  isAtBottom,
+  shouldAutoScrollToLatest,
+  type ChatScrollMetrics,
+} from "@/lib/chat-scroll-follow";
 import { THEME } from "@/lib/theme";
 
 const DISPLAY_CLIP_CHARS = 8_000;
@@ -31,8 +47,70 @@ export function RunTranscript({
   const timeline = useMemo(() => buildRunTranscriptEntries(items), [items]);
   const diagnostics = getRunDiagnostics(task);
 
+  // ── Follow the live tail ───────────────────────────────────────────────
+  //
+  // An active run's transcript grows while it is on screen. Keep the viewport
+  // pinned to the newest entry, but never move it under a reader who scrolled
+  // up: same intent-not-geometry rule as the chat list (`chat-scroll-follow`).
+  // Completed runs open at the top — there is nothing new coming, and a log's
+  // beginning is what someone opening a finished record wants.
+  const isActive = isCancellableRunStatus(task.status);
+  const listRef = useRef<FlatList<RunTranscriptEntry>>(null);
+  const followingRef = useRef(isActive);
+  const userInteractingRef = useRef(false);
+  const hasAutoScrolledRef = useRef(false);
+  const metricsRef = useRef<ChatScrollMetrics>({
+    contentHeight: 0,
+    offsetY: 0,
+    viewportHeight: 0,
+  });
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      metricsRef.current = {
+        contentHeight: contentSize.height,
+        offsetY: contentOffset.y,
+        viewportHeight: layoutMeasurement.height,
+      };
+      // Programmatic scrolls and content growth report offsets too; only a
+      // gesture the user owns may change the follow intent.
+      if (!userInteractingRef.current) return;
+      followingRef.current = isAtBottom(metricsRef.current);
+    },
+    [],
+  );
+
+  const startUserInteraction = useCallback(() => {
+    userInteractingRef.current = true;
+  }, []);
+
+  const settleFollowState = useCallback(() => {
+    userInteractingRef.current = false;
+    followingRef.current = isAtBottom(metricsRef.current);
+  }, []);
+
+  const handleContentSizeChange = useCallback(() => {
+    if (
+      !shouldAutoScrollToLatest({
+        following: followingRef.current,
+        userInteracting: userInteractingRef.current,
+        lastMessageIsUser: false,
+      })
+    ) {
+      return;
+    }
+    // Opening a live run jumps to the tail without animating through the
+    // whole record; later arrivals ease in.
+    const animated = hasAutoScrolledRef.current;
+    hasAutoScrolledRef.current = true;
+    listRef.current?.scrollToEnd({ animated });
+  }, []);
+
   return (
     <FlatList
+      ref={listRef}
       className="flex-1"
       contentContainerClassName="px-4 py-4"
       data={timeline}
@@ -74,6 +152,13 @@ export function RunTranscript({
           </View>
         )
       }
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
+      onScrollBeginDrag={startUserInteraction}
+      onMomentumScrollBegin={startUserInteraction}
+      onScrollEndDrag={settleFollowState}
+      onMomentumScrollEnd={settleFollowState}
+      onContentSizeChange={handleContentSizeChange}
     />
   );
 }
