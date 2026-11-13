@@ -120,6 +120,12 @@ export function ChatMessageList({
     viewportHeight: 0,
   });
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  // Rows that arrived while the reader was parked in history. The socket-down
+  // fallback from the chat-refresh work can surface messages with no realtime
+  // event, so arrivals are counted from the length delta rather than from a
+  // socket callback. Session switches remount this component, resetting it.
+  const [newCount, setNewCount] = useState(0);
+  const messageCountRef = useRef(messages.length);
 
   const lastMessage = messages[messages.length - 1];
   const lastMessageIsUser = lastMessage?.role === "user";
@@ -153,6 +159,7 @@ export function ChatMessageList({
       const atBottom = isAtBottom(metricsRef.current);
       followingRef.current = atBottom;
       setShowJumpToLatest(!atBottom);
+      if (atBottom) setNewCount(0);
     },
     [],
   );
@@ -162,7 +169,16 @@ export function ChatMessageList({
     const atBottom = followAfterUserScroll(metricsRef.current);
     followingRef.current = atBottom;
     setShowJumpToLatest(!atBottom);
+    if (atBottom) setNewCount(0);
   }, []);
+
+  useEffect(() => {
+    const previous = messageCountRef.current;
+    messageCountRef.current = messages.length;
+    if (messages.length <= previous) return;
+    if (followingRef.current) return;
+    setNewCount((count) => count + (messages.length - previous));
+  }, [messages.length]);
 
   const startUserInteraction = useCallback(() => {
     userInteractingRef.current = true;
@@ -196,6 +212,7 @@ export function ChatMessageList({
   const jumpToLatest = useCallback(() => {
     followingRef.current = true;
     setShowJumpToLatest(false);
+    setNewCount(0);
     listRef.current?.scrollToEnd({ animated: !reduceMotion });
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
       () => {},
@@ -343,7 +360,9 @@ export function ChatMessageList({
       keyboardShouldPersistTaps="handled"
     />
     </Pressable>
-    {showJumpToLatest ? <JumpToLatestButton onPress={jumpToLatest} /> : null}
+    {showJumpToLatest || newCount > 0 ? (
+      <JumpToLatestButton onPress={jumpToLatest} newCount={newCount} />
+    ) : null}
     </View>
     </ImageSequenceProvider>
   );
@@ -358,15 +377,23 @@ function MessageSeparator() {
  * scrolled up into history. Modeled on the issue timeline's "N new" chip —
  * same shape, same position, so the two chat-like surfaces behave alike.
  */
-function JumpToLatestButton({ onPress }: { onPress: () => void }) {
+function JumpToLatestButton({
+  onPress,
+  newCount,
+}: {
+  onPress: () => void;
+  newCount: number;
+}) {
   const { t } = useT("chat");
   const { colorScheme } = useColorScheme();
   const fg = THEME[colorScheme].primaryForeground;
+  const label =
+    newCount > 0 ? t("list.new_messages", { count: newCount }) : t("scroll.jump_to_latest");
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={t("scroll.jump_to_latest_a11y")}
+      accessibilityLabel={label}
       className="absolute bottom-3 self-center px-3.5 py-1.5 rounded-full bg-primary active:opacity-80 flex-row items-center gap-1.5"
       style={{
         shadowColor: "#000",
@@ -378,7 +405,7 @@ function JumpToLatestButton({ onPress }: { onPress: () => void }) {
     >
       <Ionicons name="arrow-down" size={14} color={fg} />
       <Text className="text-xs font-semibold text-primary-foreground">
-        {t("scroll.jump_to_latest")}
+        {label}
       </Text>
     </Pressable>
   );
