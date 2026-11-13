@@ -26,8 +26,8 @@ import { Linking, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Attachment } from "@multica/core/types";
 import { standaloneAttachments } from "@/lib/attachment-dedup";
+import { resolveAttachmentFetchUrl } from "@/lib/attachment-source";
 import { MarkdownImage } from "@/lib/markdown/markdown-image";
-import { resolveAttachmentUrl } from "@/lib/attachment-url";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { Text } from "@/components/ui/text";
@@ -95,19 +95,16 @@ function FileCard({
     <Pressable
       onPress={() => {
         // download_url is the canonical link — opening it hands off to
-        // Safari which handles auth-token-free download + previewing for
-        // common types (PDF, txt). Mirrors what the markdown link renderer
-        // does for `[name](url)`.
-        //
-        // The backend may return a server-relative URL like
-        // `/api/attachments/{id}/download` when no CloudFront signer is
-        // configured (MUL-2976). RN's `Linking.openURL` requires an
-        // absolute http(s) URL — it returns "Cannot open URL" otherwise —
-        // so resolve against `EXPO_PUBLIC_API_URL` first.
-        const target = resolveAttachmentUrl(attachment.download_url);
-        if (target) {
-          void Linking.openURL(target);
-        }
+        // Safari which handles the download + previewing for common types
+        // (PDF, txt). Under proxy storage that list URL is the
+        // credential-gated path, and Safari has no bearer token: mint the
+        // 60-second capability first (MUL-5292). CDN deployments pass their
+        // absolute URL straight through.
+        void resolveAttachmentFetchUrl(attachment.download_url).then(
+          (target) => {
+            if (target) void Linking.openURL(target);
+          },
+        );
       }}
       accessibilityRole="button"
       accessibilityLabel={`Open ${attachment.filename}`}

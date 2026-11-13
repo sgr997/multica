@@ -64,3 +64,24 @@ export function recordedUserOffset(
 ): number {
   return userInteracting ? offsetY : current;
 }
+
+/**
+ * Should returning to the screen re-apply the reader's offset?
+ *
+ * A sheet presented over the timeline (the runs list, the issue menu) can
+ * detach the native list; on dismissal the scroll view may come back at
+ * offset 0 even though the JS state — and therefore `savedOffset` — is
+ * intact. The reader never asked to move, so put them back. Being at the
+ * bottom is its own intent (stay at the newest row), and a list nobody
+ * scrolled has nothing to restore.
+ */
+export function shouldRestoreOffsetOnRefocus({
+  savedOffset,
+  atBottom,
+}: {
+  savedOffset: number;
+  atBottom: boolean;
+}): boolean {
+  if (atBottom) return false;
+  return savedOffset > 0;
+}

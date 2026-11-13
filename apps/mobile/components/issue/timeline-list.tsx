@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { FlashList, type FlashListRef } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import type { Issue, TimelineEntry } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
@@ -43,6 +44,7 @@ import { useCommentSelectStore } from "@/data/comment-select-store";
 import {
   recordedUserOffset,
   shouldRestoreOffsetAfterResize,
+  shouldRestoreOffsetOnRefocus,
   viewportChanged,
 } from "@/lib/scroll-offset-guard";
 
@@ -143,6 +145,11 @@ export function TimelineList({
   // bumps the nonce → ref no longer matches → effect re-fires.
   const lastStampRef = useRef<string | null>(null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // True only while an inbox deep link is still landing. Bottom-anchored
+  // rendering is a property of the FIRST paint; keeping it on for the whole
+  // screen lifetime made every later viewport change re-anchor the list and
+  // permanently disabled the resize guard below.
+  const [landingPending, setLandingPending] = useState(!!highlightCommentId);
 
   useEffect(() => {
     return () => {
@@ -249,7 +256,7 @@ export function TimelineList({
         !shouldRestoreOffsetAfterResize({
           savedOffset: userOffsetRef.current,
           userInteracting: userDraggingRef.current,
-          hasDeepLinkTarget: !!highlightCommentId,
+          hasDeepLinkTarget: landingPending,
         })
       ) {
         return;
@@ -273,8 +280,42 @@ export function TimelineList({
         });
       });
     },
-    [highlightCommentId],
+    [landingPending],
   );
+
+  // ── Offset survives a presented sheet ─────────────────────────────────
+  //
+  // The runs sheet and the issue action sheet are separate routes: pushing
+  // one blurs this screen, and on dismissal the native list can come back at
+  // offset 0 even though React state — and the offset the reader chose —
+  // never changed. Re-apply it once focus returns. Two frames, because the
+  // reattached scroll view settles its content before it accepts an offset.
+  const isFocused = useIsFocused();
+  const wasFocusedRef = useRef(isFocused);
+  useEffect(() => {
+    const wasFocused = wasFocusedRef.current;
+    wasFocusedRef.current = isFocused;
+    if (!isFocused || wasFocused) return;
+    if (
+      !shouldRestoreOffsetOnRefocus({
+        savedOffset: userOffsetRef.current,
+        atBottom: isAtBottomRef.current,
+      })
+    ) {
+      return;
+    }
+    const target = userOffsetRef.current;
+    let second: number | null = null;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: target, animated: false });
+      });
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      if (second != null) cancelAnimationFrame(second);
+    };
+  }, [isFocused]);
 
   const onJumpToNew = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
@@ -402,6 +443,10 @@ export function TimelineList({
     landedStampRef.current = stamp;
     const frame = requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated: false });
+      // From here on the list behaves like any other open issue: later
+      // viewport changes must preserve the reader's offset, not re-anchor
+      // to the inbox target's bottom.
+      setLandingPending(false);
     });
     return () => cancelAnimationFrame(frame);
   }, [highlightCommentId, highlightNonce, dataWithDivider.length]);
@@ -450,7 +495,7 @@ export function TimelineList({
         // set `autoscrollToBottomThreshold` because timeline uses an
         // explicit "↓ N new" chip instead of silently following appends.
         maintainVisibleContentPosition={{
-          startRenderingFromBottom: !!highlightCommentId,
+          startRenderingFromBottom: landingPending,
         }}
         // "Activity" is a section heading, not a sibling row — it should
         // hug the first entry the way iOS Settings / Linear sections do.

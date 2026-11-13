@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   recordedUserOffset,
   shouldRestoreOffsetAfterResize,
+  shouldRestoreOffsetOnRefocus,
   viewportChanged,
 } from "./scroll-offset-guard";
 
@@ -72,5 +73,25 @@ describe("recordedUserOffset", () => {
 
   it("lets a reader-driven scroll to the top win", () => {
     expect(recordedUserOffset(900, 0, true)).toBe(0);
+  });
+});
+
+describe("shouldRestoreOffsetOnRefocus", () => {
+  it("puts a mid-list reader back after a sheet is dismissed", () => {
+    expect(
+      shouldRestoreOffsetOnRefocus({ savedOffset: 900, atBottom: false }),
+    ).toBe(true);
+  });
+
+  it("leaves a reader who was at the bottom there", () => {
+    expect(
+      shouldRestoreOffsetOnRefocus({ savedOffset: 900, atBottom: true }),
+    ).toBe(false);
+  });
+
+  it("has nothing to restore for a list nobody scrolled", () => {
+    expect(
+      shouldRestoreOffsetOnRefocus({ savedOffset: 0, atBottom: false }),
+    ).toBe(false);
   });
 });

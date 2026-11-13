@@ -1,10 +1,11 @@
 /**
  * Block-level image with real aspect ratio + tap-to-lightbox.
  *
- *   - Aspect ratio detection uses RN's `Image.getSize` (cross-platform,
- *     network-friendly). While dimensions resolve we lay out at 16:9 as
- *     a placeholder — same width-100% so the surrounding flow is stable
- *     and only the height shifts once the real ratio lands.
+ *   - Aspect ratio comes from the attachment record's `width`/`height` when
+ *     the uploader recorded them; only older uploads fall back to
+ *     `Image.getSize`. While dimensions resolve we lay out at 16:9 as a
+ *     placeholder — same width-100% so the surrounding flow is stable and
+ *     only the height shifts once the real ratio lands.
  *   - Rendering uses `expo-image` for on-disk caching + smooth fade-in
  *     transition.
  *   - Tap dispatches into the global LightboxProvider for fullscreen
@@ -20,16 +21,21 @@
  * unknown reference fails the getSize callback and we fall back to a
  * 16:9 placeholder slot.
  *
+ * Credentials: a proxy-mode deployment only lists the auth-gated
+ * `/api/attachments/{id}/download` path. Native image loaders do not send
+ * the bearer token, so `useAttachmentImageSource` swaps it for a short-lived
+ * capability URL before either `getSize` or `expo-image` sees it.
+ *
  * Cancellation: a content re-render that swaps the URI must not let the
  * previous getSize callback overwrite state — guard with a `cancelled`
  * flag in the cleanup path.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Image as RNImage, Pressable, View } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import type { Attachment } from "@multica/core/types";
-import { matchAttachmentByURL } from "@multica/core/attachments/image-sequence";
-import { resolveAttachmentUrl } from "@/lib/attachment-url";
+import { authGatedAttachmentId } from "@/lib/attachment-source";
+import { useAttachmentImageSource } from "@/lib/use-attachment-image-source";
 import { useLightbox } from "./lightbox-provider";
 import { useImageSequence } from "./image-sequence";
 
@@ -42,56 +48,45 @@ interface Props {
 export function MarkdownImage({ uri, attachments }: Props) {
   const { open } = useLightbox();
   const sequence = useImageSequence();
-  const [aspect, setAspect] = useState<number | null>(null);
-
-  const resolvedUri = useMemo(() => {
-    // mc://file/<id> → look up the matching attachment's loadable URL.
-    // No match (external link, html https URL, or unresolved mc://) falls
-    // through to the original uri.
-    //
-    // `matchAttachmentByURL` + this URL pick are the ones the shared sequence
-    // builder uses, so the URI a tap reports is byte-identical to the one
-    // `ImageSequenceProvider` put in the array — otherwise the lightbox could
-    // not find its position and would silently drop back to a single image.
-    const match = matchAttachmentByURL(uri, attachments);
-    const candidate: string | null | undefined = match
-      ? match.download_url || match.markdown_url || match.url
-      : uri;
-    // The backend may return a server-relative `download_url` (e.g.
-    // `/api/attachments/{id}/download`) when no CloudFront signer is
-    // configured — see MUL-2976. RN's image loader has no document
-    // origin to resolve against, so prepend `EXPO_PUBLIC_API_URL` for
-    // server-relative paths and let absolute URLs / external links pass
-    // through unchanged.
-    return resolveAttachmentUrl(candidate) ?? uri;
-  }, [uri, attachments]);
+  const { uri: resolvedUri, aspectRatio } = useAttachmentImageSource(
+    uri,
+    attachments,
+  );
+  const [measuredAspect, setMeasuredAspect] = useState<number | null>(null);
 
   useEffect(() => {
+    setMeasuredAspect(null);
+    if (!resolvedUri || aspectRatio) return;
+    // The gated path answers 401 to a bare native request; the capability
+    // resolution re-runs this effect with a loadable URL shortly.
+    if (authGatedAttachmentId(resolvedUri)) return;
     let cancelled = false;
     RNImage.getSize(
       resolvedUri,
       (w, h) => {
         if (cancelled || !w || !h) return;
-        setAspect(w / h);
+        setMeasuredAspect(w / h);
       },
       () => {
         // Network failure / decode failure / 404 / unknown URI scheme
         // (e.g. unresolved mc://) — keep the 16:9 fallback so the slot
         // still shows the muted background instead of collapsing.
-        if (!cancelled) setAspect(16 / 9);
+        if (!cancelled) setMeasuredAspect(16 / 9);
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [resolvedUri]);
+  }, [resolvedUri, aspectRatio]);
+
+  const aspect = aspectRatio ?? measuredAspect ?? 16 / 9;
 
   return (
-    <Pressable onPress={() => open(resolvedUri, sequence)}>
+    <Pressable onPress={() => open(resolvedUri ?? uri, sequence)}>
       <View className="rounded-lg overflow-hidden bg-muted">
         <ExpoImage
-          source={{ uri: resolvedUri }}
-          style={{ width: "100%", aspectRatio: aspect ?? 16 / 9 }}
+          source={resolvedUri ? { uri: resolvedUri } : undefined}
+          style={{ width: "100%", aspectRatio: aspect }}
           contentFit="contain"
           transition={150}
         />

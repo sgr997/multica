@@ -24,6 +24,9 @@ vi.mock("react-native", () => ({
 vi.mock("expo-image", () => ({ Image: "ExpoImage" }));
 vi.mock("react-native-image-viewing", () => ({ default: "ImageView" }));
 vi.mock("@/components/ui/text", () => ({ Text: "Text" }));
+// attachment-source imports the API client for capability minting; the real
+// module pulls in expo-secure-store, which has no Node runtime.
+vi.mock("@/data/api", () => ({ api: { getAttachment: vi.fn() } }));
 
 import { preprocessMobileMarkdown } from "./preprocess";
 import { splitMarkdown } from "./split-markdown";

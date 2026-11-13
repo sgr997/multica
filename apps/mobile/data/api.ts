@@ -751,6 +751,21 @@ class ApiClient {
     );
   }
 
+  // GET /api/attachments/:id — single-attachment metadata. On a deployment
+  // without a CDN signer (proxy / local-disk storage) this is where the
+  // server mints a 60-second capability URL into `download_url`: the list
+  // endpoints only carry the auth-gated stable path, which native image
+  // loaders cannot fetch (they send no Authorization header). MUL-5292.
+  async getAttachment(
+    attachmentId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<Attachment> {
+    const raw = await this.fetch<unknown>(`/api/attachments/${attachmentId}`, {
+      signal: opts?.signal,
+    });
+    return AttachmentSchema.parse(raw) as Attachment;
+  }
+
   // Active tasks for an issue (status in queued/dispatched/running). Returns
   // the inner `tasks` array directly — handler wraps it in `{ tasks: [] }`
   // (server/internal/handler/daemon.go:1866) so the response object survives
