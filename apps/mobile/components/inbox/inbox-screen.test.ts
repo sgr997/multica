@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { router } from "expo-router";
 import Inbox from "@/app/(app)/[workspace]/(tabs)/inbox";
 
-const state = vi.hoisted(() => ({ rows: [] as InboxItem[], markRead: vi.fn() }));
+const state = vi.hoisted(() => ({
+  rows: [] as InboxItem[],
+  markRead: vi.fn(),
+  refetch: vi.fn(),
+}));
 vi.mock("react", async (importOriginal) => ({
   ...await importOriginal<typeof import("react")>(),
   useMemo: (create: () => unknown) => create(),
@@ -16,7 +20,7 @@ vi.mock("react-native", () => ({
 vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: () => ({ data: state.rows }),
+  useQuery: () => ({ data: state.rows, refetch: state.refetch }),
 }));
 vi.mock("@/data/queries/inbox", () => ({ inboxListOptions: vi.fn() }));
 vi.mock("@/data/mutations/inbox", () => {
@@ -71,6 +75,11 @@ describe("Inbox navigation wiring", () => {
     // Inspect props and invoke the tap callback without rendering native UI.
     const list = Inbox().props.children[1];
     expect(list.props.data).toEqual([comment]);
+    // Pull-to-refresh must be reachable from the blank area below the rows,
+    // not only from the rows themselves.
+    expect(list.props.style).toEqual({ flex: 1 });
+    expect(list.props.contentContainerClassName).toContain("grow");
+    expect(list.props.alwaysBounceVertical).toBe(true);
     list.props.renderItem({ item: comment }).props.onPress();
 
     expect(state.markRead).toHaveBeenCalledExactlyOnceWith("comment");
@@ -79,5 +88,16 @@ describe("Inbox navigation wiring", () => {
       params: expect.objectContaining({ workspace: "acme", id: "issue-1" }),
     }));
     expect(state.markRead.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(router.push).mock.invocationCallOrder[0]!);
+  });
+
+  it("keeps an empty inbox inside the refreshable list", () => {
+    state.rows = [];
+
+    const list = Inbox().props.children[1];
+    expect(list.props.data).toEqual([]);
+    // The empty state used to replace the list, which left the whole screen
+    // with no pull gesture at all.
+    expect(list.props.ListEmptyComponent).toBeTruthy();
+    expect(list.props.onRefresh).toBeTypeOf("function");
   });
 });

@@ -149,16 +149,24 @@ export default function Inbox() {
             <Text>{t("common:actions.retry")}</Text>
           </Button>
         </View>
-      ) : !data || data.length === 0 ? (
-        <InboxEmpty iconColor={THEME[colorScheme].mutedForeground} />
       ) : (
         <FlatList
           data={data}
+          // The list, not its rows, owns the pull gesture: fill the remaining
+          // height and grow the content container so the blank area below the
+          // last row is part of the scroll view instead of dead space the
+          // RefreshControl never sees. Same reason the empty state is a
+          // ListEmptyComponent — an empty inbox must still pull to refresh.
+          style={{ flex: 1 }}
+          contentContainerClassName="pb-6 grow"
+          alwaysBounceVertical
           keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => (
             <View className="h-px bg-border ml-16" />
           )}
-          contentContainerClassName="pb-6"
+          ListEmptyComponent={
+            <InboxEmpty iconColor={THEME[colorScheme].mutedForeground} />
+          }
           renderItem={({ item }) => (
             <SwipeableInboxRow
               item={item}
