@@ -323,6 +323,36 @@ export default function WorkspaceLayout() {
             }}
         />
         <Stack.Screen
+          name="agent/[id]"
+          options={{
+            title: t("navigation:routes.agents"),
+            headerBackTitle: t("back"),
+          }}
+        />
+        <Stack.Screen
+          name="agent/[id]/edit"
+          options={{
+            title: t("navigation:routes.agents"),
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen
+          name="agent/[id]/instructions"
+          options={{
+            headerShown: false,
+            presentation: "fullScreenModal",
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="agent/[id]/run/[taskId]"
+          options={{
+            title: t("navigation:routes.execution_record"),
+            headerBackTitle: t("back"),
+          }}
+        />
+        <Stack.Screen
           name="more/pins"
             options={{
               title: t("navigation:routes.pinned"),

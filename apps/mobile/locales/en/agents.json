@@ -1,0 +1,155 @@
+{
+  "list": {
+    "search_placeholder": "Search agents",
+    "filter_title": "Filter agents",
+    "all_runtimes": "All runtimes",
+    "show_archived": "Show archived",
+    "hide_archived": "Hide archived",
+    "sections": {
+      "active": "Active",
+      "offline": "Offline",
+      "archived": "Archived"
+    },
+    "empty": "No agents yet",
+    "empty_filtered": "No agents match these filters",
+    "load_failed": "Couldn't load agents: {{message}}",
+    "active_task_count_one": "{{count}} active",
+    "active_task_count_other": "{{count}} active",
+    "archived_badge": "Archived"
+  },
+  "detail": {
+    "load_failed": "Couldn't load this agent.",
+    "forbidden": "You don't have access to this agent.",
+    "not_found": "This agent no longer exists.",
+    "actions_aria": "Agent actions",
+    "edit_profile": "Edit profile",
+    "archive": "Archive",
+    "restore": "Restore",
+    "cancel_tasks": "Cancel running tasks",
+    "archived_notice": "This agent is archived. Restore it to run again.",
+    "sections": {
+      "work": "Work",
+      "instructions": "Instructions",
+      "identity": "Channels & identity",
+      "capabilities": "Capabilities"
+    },
+    "owner": "Owner",
+    "runtime": "Runtime",
+    "model": "Model",
+    "thinking": "Thinking",
+    "service_tier": "Service tier",
+    "runtime_default": "Runtime default",
+    "unknown": "Unknown",
+    "unbound": "No runtime",
+    "work": {
+      "active": "Active runs",
+      "recent": "Recent tasks",
+      "empty_active": "No active runs",
+      "empty_all": "No runs yet",
+      "open": "Open transcript",
+      "open_live": "Open live transcript"
+    },
+    "instructions": {
+      "empty": "No instructions yet",
+      "edit": "Edit",
+      "draft_pending": "Unsaved draft"
+    },
+    "identity": {
+      "agent_id": "Agent ID",
+      "runtime": "Runtime",
+      "provider": "Provider",
+      "access": "Access",
+      "owner": "Owner",
+      "created": "Created",
+      "channels": "Messaging channels",
+      "channels_web_only": "Managed on the web",
+      "private": "Private",
+      "workspace": "Workspace",
+      "specific_people": "Specific people"
+    },
+    "capabilities": {
+      "skills": "Skills",
+      "no_skills": "No skills attached",
+      "system_agent": "Maintained by Multica",
+      "read_only": "Skills editing arrives in a later phase."
+    }
+  },
+  "edit": {
+    "title": "Edit agent",
+    "name": "Name",
+    "name_placeholder": "Agent name",
+    "description": "Description",
+    "description_placeholder": "What this agent does",
+    "avatar": "Avatar",
+    "avatar_change": "Change avatar",
+    "avatar_take": "Take photo",
+    "avatar_library": "Choose photo",
+    "avatar_emoji": "Choose emoji",
+    "avatar_remove": "Remove avatar",
+    "avatar_permission_title": "Photo access needed",
+    "avatar_permission_message": "Allow photo access in Settings to choose an avatar.",
+    "avatar_too_large_title": "Photo is too large",
+    "avatar_too_large_message": "Choose an image smaller than 5 MB.",
+    "avatar_failed": "Couldn't update avatar: {{message}}",
+    "execution": "Runtime settings",
+    "model": "Model",
+    "model_placeholder": "Runtime default",
+    "thinking": "Thinking level",
+    "thinking_placeholder": "Runtime default",
+    "service_tier": "Service tier",
+    "service_tier_placeholder": "Runtime default",
+    "execution_hint": "Values are passed to the runtime unchanged. Leave blank to use its default.",
+    "save": "Save",
+    "saving": "Saving…",
+    "save_failed": "Couldn't save: {{message}}",
+    "missing": "This agent is no longer available."
+  },
+  "instructions": {
+    "title": "Instructions",
+    "placeholder": "Write the agent's instructions…",
+    "preview": "Preview",
+    "edit": "Edit",
+    "done": "Done",
+    "saving": "Saving…",
+    "dirty": "Unsaved changes",
+    "clean": "All changes saved",
+    "preview_empty": "Nothing to preview yet.",
+    "discard_title": "Discard changes?",
+    "discard_message": "Your unsaved instructions will be lost.",
+    "discard_keep": "Keep editing",
+    "discard_confirm": "Discard"
+  },
+  "conflict": {
+    "title": "Content changed elsewhere",
+    "message": "Someone else changed this agent. Overwrite their version or reload it?",
+    "overwrite": "Overwrite",
+    "reload": "Reload",
+    "reload_done": "Loaded the latest version."
+  },
+  "archive": {
+    "title": "Archive agent?",
+    "message": "The agent will leave the active list. Its runs and history stay available.",
+    "confirm": "Archive",
+    "archive_failed": "Couldn't archive: {{message}}",
+    "restore_failed": "Couldn't restore: {{message}}"
+  },
+  "cancel": {
+    "title": "Cancel running tasks?",
+    "message": "Queued and running tasks will stop. The runtime may take a few seconds to halt.",
+    "confirm": "Cancel tasks",
+    "done_one": "Cancelled {{count}} task.",
+    "done_other": "Cancelled {{count}} tasks.",
+    "failed": "Couldn't cancel tasks: {{message}}"
+  },
+  "availability": {
+    "online": "Online",
+    "unstable": "Unstable",
+    "offline": "Offline",
+    "archived": "Archived"
+  },
+  "workload": {
+    "working": "Working",
+    "queued": "Queued",
+    "idle": "Idle"
+  }
+}

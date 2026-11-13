@@ -10,6 +10,7 @@
     "pinned": "Pinned",
     "issues": "Issues",
     "projects": "Projects",
+    "agents": "Agents",
     "account_settings": "Account settings"
   },
   "routes": {

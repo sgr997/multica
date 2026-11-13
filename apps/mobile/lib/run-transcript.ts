@@ -7,6 +7,8 @@ const UUID_PATTERN =
 
 export const RUN_TRANSCRIPT_PATHNAME =
   "/[workspace]/issue/[id]/run/[taskId]" as const;
+export const AGENT_RUN_TRANSCRIPT_PATHNAME =
+  "/[workspace]/agent/[id]/run/[taskId]" as const;
 
 export function runTranscriptRoute(
   workspace: string,
@@ -16,6 +18,19 @@ export function runTranscriptRoute(
   return {
     pathname: RUN_TRANSCRIPT_PATHNAME,
     params: { workspace, id: issueId, taskId },
+  } as const;
+}
+
+/** Agent-scoped run transcript. Used by the Agents workspace, where a task
+ *  may not belong to an issue at all (chat / autopilot runs). */
+export function agentRunTranscriptRoute(
+  workspace: string,
+  agentId: string,
+  taskId: string,
+) {
+  return {
+    pathname: AGENT_RUN_TRANSCRIPT_PATHNAME,
+    params: { workspace, id: agentId, taskId },
   } as const;
 }
 

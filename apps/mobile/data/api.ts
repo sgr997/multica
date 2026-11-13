@@ -54,6 +54,7 @@ import type {
   TaskMessagePayload,
   TimelineEntry,
   UpdateIssueRequest,
+  UpdateAgentRequest,
   UpdateMeRequest,
   UpdateProjectRequest,
   User,
@@ -81,6 +82,7 @@ import type {
 import {
   ActiveTasksResponseSchema,
   AgentListSchema,
+  AgentSchema,
   AgentTaskListSchema,
   AttachmentListSchema,
   AttachmentSchema,
@@ -89,7 +91,9 @@ import {
   ChatPendingTaskSchema,
   ChatSessionListSchema,
   ChatSessionSchema,
+  CancelAgentTasksResponseSchema,
   EMPTY_ACTIVE_TASKS_RESPONSE,
+  EMPTY_AGENT,
   EMPTY_AGENT_LIST,
   EMPTY_AGENT_TASK_LIST,
   EMPTY_ATTACHMENT_LIST,
@@ -628,6 +632,69 @@ class ApiClient {
     });
     return parseWithFallback(raw, AgentTaskListSchema, EMPTY_AGENT_TASK_LIST, {
       endpoint: "listAgentTaskSnapshot",
+    });
+  }
+
+  async getAgent(
+    id: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<Agent> {
+    const raw = await this.fetch<unknown>(`/api/agents/${id}`, {
+      signal: opts?.signal,
+    });
+    return parseWithFallback(raw, AgentSchema, { ...EMPTY_AGENT, id }, {
+      endpoint: "getAgent",
+    });
+  }
+
+  async updateAgent(id: string, data: UpdateAgentRequest): Promise<Agent> {
+    // Writes consume the returned row to replace optimistic caches. A schema
+    // drift must fail (and roll back) rather than replace the agent with a
+    // blank fallback.
+    const raw = await this.fetch<unknown>(`/api/agents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return AgentSchema.parse(raw);
+  }
+
+  async archiveAgent(id: string): Promise<Agent> {
+    const raw = await this.fetch<unknown>(`/api/agents/${id}/archive`, {
+      method: "POST",
+    });
+    return AgentSchema.parse(raw);
+  }
+
+  async restoreAgent(id: string): Promise<Agent> {
+    const raw = await this.fetch<unknown>(`/api/agents/${id}/restore`, {
+      method: "POST",
+    });
+    return AgentSchema.parse(raw);
+  }
+
+  async cancelAgentTasks(id: string): Promise<{ cancelled: number }> {
+    const raw = await this.fetch<unknown>(`/api/agents/${id}/cancel-tasks`, {
+      method: "POST",
+    });
+    return CancelAgentTasksResponseSchema.parse(raw);
+  }
+
+  /**
+   * First page of an agent's run history. The endpoint also returns an
+   * `X-Agent-Tasks-Next-Cursor` header; Phase 1 only needs the newest page
+   * (active runs + recent tasks), so the cursor is not surfaced yet.
+   */
+  async listAgentTasks(
+    id: string,
+    opts?: { signal?: AbortSignal; limit?: number },
+  ): Promise<AgentTask[]> {
+    const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 200);
+    const raw = await this.fetch<unknown>(
+      `/api/agents/${id}/tasks?limit=${limit}`,
+      { signal: opts?.signal },
+    );
+    return parseWithFallback(raw, AgentTaskListSchema, EMPTY_AGENT_TASK_LIST, {
+      endpoint: "listAgentTasks",
     });
   }
 

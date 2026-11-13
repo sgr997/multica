@@ -55,6 +55,54 @@ describe("api.deleteComment", () => {
   });
 });
 
+describe("agent detail endpoints", () => {
+  const agentPayload = {
+    id: "agent-1",
+    name: "Builder",
+    model: "gpt-5",
+    thinking_level: "high",
+  };
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("parses the detail payload into the extended agent shape", async () => {
+    const fetchMock = vi.fn(async () => Response.json(agentPayload));
+    vi.stubGlobal("fetch", fetchMock);
+    const agent = await api.getAgent("agent-1");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/agents/agent-1",
+      expect.objectContaining({ headers: expect.any(Object) }),
+    );
+    expect(agent.thinking_level).toBe("high");
+  });
+
+  it.each([
+    ["update", () => api.updateAgent("agent-1", { name: "B" }), "PUT", "/api/agents/agent-1"],
+    ["archive", () => api.archiveAgent("agent-1"), "POST", "/api/agents/agent-1/archive"],
+    ["restore", () => api.restoreAgent("agent-1"), "POST", "/api/agents/agent-1/restore"],
+  ])("sends %s", async (_name, call, method, path) => {
+    const fetchMock = vi.fn(async () => Response.json(agentPayload));
+    vi.stubGlobal("fetch", fetchMock);
+    await call();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `https://api.example.test${path}`,
+      expect.objectContaining({ method }),
+    );
+  });
+
+  it("lists agent tasks", async () => {
+    const fetchMock = vi.fn(async () => Response.json([{ id: "task-1" }]));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.listAgentTasks("agent-1", { limit: 20 })).resolves.toEqual([
+      expect.objectContaining({ id: "task-1" }),
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/agents/agent-1/tasks?limit=20",
+      expect.any(Object),
+    );
+  });
+});
+
 
 describe("api.listIssues requester compatibility", () => {
   afterEach(() => vi.unstubAllGlobals());

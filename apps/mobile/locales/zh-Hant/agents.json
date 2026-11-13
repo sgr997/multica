@@ -1,0 +1,153 @@
+{
+  "list": {
+    "search_placeholder": "搜尋智慧體",
+    "filter_title": "篩選智慧體",
+    "all_runtimes": "全部執行環境",
+    "show_archived": "顯示已封存",
+    "hide_archived": "隱藏已封存",
+    "sections": {
+      "active": "活躍",
+      "offline": "離線",
+      "archived": "已封存"
+    },
+    "empty": "還沒有智慧體",
+    "empty_filtered": "沒有符合篩選條件的智慧體",
+    "load_failed": "載入智慧體失敗：{{message}}",
+    "active_task_count_other": "{{count}} 個進行中",
+    "archived_badge": "已封存"
+  },
+  "detail": {
+    "load_failed": "無法載入該智慧體。",
+    "forbidden": "你沒有存取該智慧體的權限。",
+    "not_found": "該智慧體已不存在。",
+    "actions_aria": "智慧體操作",
+    "edit_profile": "編輯資料",
+    "archive": "封存",
+    "restore": "還原",
+    "cancel_tasks": "取消執行中的任務",
+    "archived_notice": "該智慧體已封存，還原後才能繼續執行。",
+    "sections": {
+      "work": "工作",
+      "instructions": "指令",
+      "identity": "通道與身分",
+      "capabilities": "能力"
+    },
+    "owner": "負責人",
+    "runtime": "執行環境",
+    "model": "模型",
+    "thinking": "思考等級",
+    "service_tier": "服務等級",
+    "runtime_default": "執行環境預設",
+    "unknown": "未知",
+    "unbound": "未綁定執行環境",
+    "work": {
+      "active": "執行中",
+      "recent": "最近任務",
+      "empty_active": "暫無執行中的任務",
+      "empty_all": "暫無執行紀錄",
+      "open": "開啟執行紀錄",
+      "open_live": "開啟即時執行紀錄"
+    },
+    "instructions": {
+      "empty": "還沒有指令",
+      "edit": "編輯",
+      "draft_pending": "有未儲存草稿"
+    },
+    "identity": {
+      "agent_id": "智慧體 ID",
+      "runtime": "執行環境",
+      "provider": "供應商",
+      "access": "存取權限",
+      "owner": "負責人",
+      "created": "建立時間",
+      "channels": "訊息通道",
+      "channels_web_only": "在網頁端管理",
+      "private": "私人",
+      "workspace": "工作區",
+      "specific_people": "指定成員"
+    },
+    "capabilities": {
+      "skills": "技能",
+      "no_skills": "未綁定技能",
+      "system_agent": "由 Multica 維護",
+      "read_only": "技能編輯將在後續階段開放。"
+    }
+  },
+  "edit": {
+    "title": "編輯智慧體",
+    "name": "名稱",
+    "name_placeholder": "智慧體名稱",
+    "description": "描述",
+    "description_placeholder": "這個智慧體做什麼",
+    "avatar": "頭像",
+    "avatar_change": "更換頭像",
+    "avatar_take": "拍照",
+    "avatar_library": "從相簿選擇",
+    "avatar_emoji": "選擇表情",
+    "avatar_remove": "移除頭像",
+    "avatar_permission_title": "需要相簿權限",
+    "avatar_permission_message": "請在系統設定中允許存取相簿後再選擇頭像。",
+    "avatar_too_large_title": "圖片太大",
+    "avatar_too_large_message": "請選擇小於 5 MB 的圖片。",
+    "avatar_failed": "更新頭像失敗：{{message}}",
+    "execution": "執行環境設定",
+    "model": "模型",
+    "model_placeholder": "執行環境預設",
+    "thinking": "思考等級",
+    "thinking_placeholder": "執行環境預設",
+    "service_tier": "服務等級",
+    "service_tier_placeholder": "執行環境預設",
+    "execution_hint": "這些值會原樣傳給執行環境；留空表示使用其預設值。",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "save_failed": "儲存失敗：{{message}}",
+    "missing": "該智慧體已無法使用。"
+  },
+  "instructions": {
+    "title": "指令",
+    "placeholder": "寫下這個智慧體的指令…",
+    "preview": "預覽",
+    "edit": "編輯",
+    "done": "完成",
+    "saving": "儲存中…",
+    "dirty": "有未儲存的修改",
+    "clean": "所有修改已儲存",
+    "preview_empty": "還沒有可預覽的內容。",
+    "discard_title": "放棄修改？",
+    "discard_message": "未儲存的指令將會遺失。",
+    "discard_keep": "繼續編輯",
+    "discard_confirm": "放棄"
+  },
+  "conflict": {
+    "title": "內容已被其他人修改",
+    "message": "內容已被其他人修改，覆蓋還是重新整理？",
+    "overwrite": "覆蓋",
+    "reload": "重新整理",
+    "reload_done": "已載入最新版本。"
+  },
+  "archive": {
+    "title": "封存智慧體？",
+    "message": "封存後該智慧體會從活躍列表移除，執行紀錄和歷史仍會保留。",
+    "confirm": "封存",
+    "archive_failed": "封存失敗：{{message}}",
+    "restore_failed": "還原失敗：{{message}}"
+  },
+  "cancel": {
+    "title": "取消執行中的任務？",
+    "message": "排隊和執行中的任務都會停止，執行環境可能需要幾秒鐘才真正中斷。",
+    "confirm": "取消任務",
+    "done_other": "已取消 {{count}} 個任務。",
+    "failed": "取消任務失敗：{{message}}"
+  },
+  "availability": {
+    "online": "線上",
+    "unstable": "不穩定",
+    "offline": "離線",
+    "archived": "已封存"
+  },
+  "workload": {
+    "working": "工作中",
+    "queued": "排隊中",
+    "idle": "閒置"
+  }
+}

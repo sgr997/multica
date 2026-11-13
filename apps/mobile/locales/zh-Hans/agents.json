@@ -1,0 +1,153 @@
+{
+  "list": {
+    "search_placeholder": "搜索智能体",
+    "filter_title": "筛选智能体",
+    "all_runtimes": "全部运行时",
+    "show_archived": "显示已归档",
+    "hide_archived": "隐藏已归档",
+    "sections": {
+      "active": "活跃",
+      "offline": "离线",
+      "archived": "已归档"
+    },
+    "empty": "还没有智能体",
+    "empty_filtered": "没有符合筛选条件的智能体",
+    "load_failed": "加载智能体失败：{{message}}",
+    "active_task_count_other": "{{count}} 个进行中",
+    "archived_badge": "已归档"
+  },
+  "detail": {
+    "load_failed": "无法加载该智能体。",
+    "forbidden": "你没有访问该智能体的权限。",
+    "not_found": "该智能体已不存在。",
+    "actions_aria": "智能体操作",
+    "edit_profile": "编辑资料",
+    "archive": "归档",
+    "restore": "恢复",
+    "cancel_tasks": "取消运行中的任务",
+    "archived_notice": "该智能体已归档，恢复后才能继续运行。",
+    "sections": {
+      "work": "工作",
+      "instructions": "指令",
+      "identity": "通道与身份",
+      "capabilities": "能力"
+    },
+    "owner": "负责人",
+    "runtime": "运行时",
+    "model": "模型",
+    "thinking": "思考级别",
+    "service_tier": "服务档位",
+    "runtime_default": "运行时默认",
+    "unknown": "未知",
+    "unbound": "未绑定运行时",
+    "work": {
+      "active": "运行中",
+      "recent": "最近任务",
+      "empty_active": "暂无运行中的任务",
+      "empty_all": "暂无运行记录",
+      "open": "打开执行记录",
+      "open_live": "打开实时执行记录"
+    },
+    "instructions": {
+      "empty": "还没有指令",
+      "edit": "编辑",
+      "draft_pending": "有未保存草稿"
+    },
+    "identity": {
+      "agent_id": "智能体 ID",
+      "runtime": "运行时",
+      "provider": "提供方",
+      "access": "访问权限",
+      "owner": "负责人",
+      "created": "创建时间",
+      "channels": "消息通道",
+      "channels_web_only": "在网页端管理",
+      "private": "私有",
+      "workspace": "工作区",
+      "specific_people": "指定成员"
+    },
+    "capabilities": {
+      "skills": "技能",
+      "no_skills": "未绑定技能",
+      "system_agent": "由 Multica 维护",
+      "read_only": "技能编辑将在后续阶段开放。"
+    }
+  },
+  "edit": {
+    "title": "编辑智能体",
+    "name": "名称",
+    "name_placeholder": "智能体名称",
+    "description": "描述",
+    "description_placeholder": "这个智能体做什么",
+    "avatar": "头像",
+    "avatar_change": "更换头像",
+    "avatar_take": "拍照",
+    "avatar_library": "从相册选择",
+    "avatar_emoji": "选择表情",
+    "avatar_remove": "移除头像",
+    "avatar_permission_title": "需要相册权限",
+    "avatar_permission_message": "请在系统设置中允许访问相册后再选择头像。",
+    "avatar_too_large_title": "图片太大",
+    "avatar_too_large_message": "请选择小于 5 MB 的图片。",
+    "avatar_failed": "更新头像失败：{{message}}",
+    "execution": "运行时设置",
+    "model": "模型",
+    "model_placeholder": "运行时默认",
+    "thinking": "思考级别",
+    "thinking_placeholder": "运行时默认",
+    "service_tier": "服务档位",
+    "service_tier_placeholder": "运行时默认",
+    "execution_hint": "这些值会原样传给运行时；留空表示使用运行时默认值。",
+    "save": "保存",
+    "saving": "保存中…",
+    "save_failed": "保存失败：{{message}}",
+    "missing": "该智能体已不可用。"
+  },
+  "instructions": {
+    "title": "指令",
+    "placeholder": "写下这个智能体的指令…",
+    "preview": "预览",
+    "edit": "编辑",
+    "done": "完成",
+    "saving": "保存中…",
+    "dirty": "有未保存的修改",
+    "clean": "所有修改已保存",
+    "preview_empty": "还没有可预览的内容。",
+    "discard_title": "放弃修改？",
+    "discard_message": "未保存的指令将会丢失。",
+    "discard_keep": "继续编辑",
+    "discard_confirm": "放弃"
+  },
+  "conflict": {
+    "title": "内容已被其他人修改",
+    "message": "内容已被其他人修改，覆盖还是刷新？",
+    "overwrite": "覆盖",
+    "reload": "刷新",
+    "reload_done": "已加载最新版本。"
+  },
+  "archive": {
+    "title": "归档智能体？",
+    "message": "归档后该智能体会从活跃列表移除，运行记录和历史仍会保留。",
+    "confirm": "归档",
+    "archive_failed": "归档失败：{{message}}",
+    "restore_failed": "恢复失败：{{message}}"
+  },
+  "cancel": {
+    "title": "取消运行中的任务？",
+    "message": "排队和运行中的任务都会停止，运行时可能需要几秒钟才真正中断。",
+    "confirm": "取消任务",
+    "done_other": "已取消 {{count}} 个任务。",
+    "failed": "取消任务失败：{{message}}"
+  },
+  "availability": {
+    "online": "在线",
+    "unstable": "不稳定",
+    "offline": "离线",
+    "archived": "已归档"
+  },
+  "workload": {
+    "working": "工作中",
+    "queued": "排队中",
+    "idle": "空闲"
+  }
+}

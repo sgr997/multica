@@ -13,6 +13,7 @@ import { z } from "zod";
 import type {
   Agent,
   AgentInvocationTarget,
+  AgentSkillSummary,
   AgentTask,
   Attachment,
   ChatMessage,
@@ -637,6 +638,15 @@ const AgentInvocationTargetSchema: z.ZodType<AgentInvocationTarget> = z
   })
   .loose();
 
+export const AgentSkillSummarySchema: z.ZodType<AgentSkillSummary> = z
+  .object({
+    id: z.string(),
+    name: z.string().default(""),
+    description: z.string().default(""),
+    enabled: z.boolean().optional(),
+  })
+  .loose();
+
 // Agent schema is loose on every enum / structural field — the agent table is
 // where new modes/visibilities/statuses get added most often. We need only id,
 // name, avatar_url, and a couple of flags for the assignee picker + chat
@@ -646,6 +656,10 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
   workspace_id: z.string().default(""),
   runtime_id: z.string().default(""),
   runtime_bound: z.boolean().optional(),
+  runtime_availability: z
+    .enum(["online", "unstable", "offline"])
+    .optional()
+    .catch(undefined),
   name: z.string().default(""),
   description: z.string().default(""),
   instructions: z.string().default(""),
@@ -660,6 +674,8 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
     )
     .catch([])
     .default([]),
+  system_key: z.string().optional(),
+  system_instructions: z.string().optional(),
   avatar_url: z.string().nullable().default(null),
   runtime_mode: z.string().catch("daemon") as unknown as z.ZodType<
     Agent["runtime_mode"]
@@ -680,10 +696,10 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
   status: z.string().catch("active") as unknown as z.ZodType<Agent["status"]>,
   max_concurrent_tasks: z.number().default(1),
   model: z.string().default(""),
+  thinking_level: z.string().optional().catch(""),
+  service_tier: z.string().optional().catch(""),
   owner_id: z.string().nullable().default(null),
-  skills: z.array(z.unknown()).default([]) as unknown as z.ZodType<
-    Agent["skills"]
-  >,
+  skills: z.array(AgentSkillSummarySchema).catch([]).default([]),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
   archived_at: z.string().nullable().default(null),
@@ -692,6 +708,38 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
 
 export const AgentListSchema = z.array(AgentSchema).default([]);
 export const EMPTY_AGENT_LIST: Agent[] = [];
+export const CancelAgentTasksResponseSchema = z
+  .object({
+    cancelled: z.number().default(0),
+  })
+  .loose();
+export const EMPTY_AGENT: Agent = {
+  id: "",
+  workspace_id: "",
+  runtime_id: "",
+  name: "",
+  description: "",
+  instructions: "",
+  conversation_starters: [],
+  avatar_url: null,
+  runtime_mode: "local",
+  runtime_config: {},
+  custom_args: [],
+  visibility: "workspace",
+  permission_mode: "private",
+  invocation_targets: [],
+  status: "offline",
+  max_concurrent_tasks: 1,
+  model: "",
+  thinking_level: "",
+  service_tier: "",
+  owner_id: null,
+  skills: [],
+  created_at: "",
+  updated_at: "",
+  archived_at: null,
+  archived_by: null,
+};
 
 // Runtime device — the daemon (local or cloud) an agent binds to. Mobile reads
 // it for the presence dot: `status` + `last_seen_at` drive the three-state

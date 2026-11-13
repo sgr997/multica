@@ -5,8 +5,10 @@
  * Invalidates the queries that back the presence dot:
  *   - runtimeListOptions      ← daemon:register, runtime sweeper transitions
  *   - agentListOptions        ← agent:status / created / archived / restored
+ *   - agentDetailOptions      ← same prefix; the open detail screen refetches
  *   - agentTaskSnapshotOptions← task:queued / dispatch / completed / failed /
  *                               cancelled
+ *   - agentTasksOptions       ← per-agent run history on the detail screen
  *
  * Deliberately NOT subscribed (cellular-data rule, apps/mobile/CLAUDE.md):
  *   - daemon:heartbeat — every 15s × in-online runtime; web also skips it
@@ -29,6 +31,7 @@ export function usePresenceRealtime() {
       const runtimesKey = ["runtimes", wsId];
       const agentsKey = ["agents", wsId];
       const snapshotKey = ["agent-task-snapshot", wsId];
+      const agentTasksKey = ["agent-tasks", wsId];
 
       const invalidateRuntimes = () =>
         queryClient.invalidateQueries({ queryKey: runtimesKey });
@@ -36,6 +39,8 @@ export function usePresenceRealtime() {
         queryClient.invalidateQueries({ queryKey: agentsKey });
       const invalidateSnapshot = () =>
         queryClient.invalidateQueries({ queryKey: snapshotKey });
+      const invalidateAgentTasks = () =>
+        queryClient.invalidateQueries({ queryKey: agentTasksKey });
 
       return [
         // Daemon lifecycle; heartbeats deliberately omitted.
@@ -48,22 +53,41 @@ export function usePresenceRealtime() {
         // away, so invalidate the cached list.
         ws.on("agent:status", invalidateAgents),
         ws.on("agent:created", invalidateAgents),
-        ws.on("agent:archived", invalidateAgents),
+        ws.on("agent:archived", () => {
+          invalidateAgents();
+          invalidateAgentTasks();
+        }),
         ws.on("agent:restored", invalidateAgents),
 
         // Task lifecycle — drives the workload dimension of presence and the
         // reserved-for-P1 peek sheet. progress / message intentionally absent.
-        ws.on("task:queued", invalidateSnapshot),
-        ws.on("task:dispatch", invalidateSnapshot),
-        ws.on("task:completed", invalidateSnapshot),
-        ws.on("task:failed", invalidateSnapshot),
-        ws.on("task:cancelled", invalidateSnapshot),
+        ws.on("task:queued", () => {
+          invalidateSnapshot();
+          invalidateAgentTasks();
+        }),
+        ws.on("task:dispatch", () => {
+          invalidateSnapshot();
+          invalidateAgentTasks();
+        }),
+        ws.on("task:completed", () => {
+          invalidateSnapshot();
+          invalidateAgentTasks();
+        }),
+        ws.on("task:failed", () => {
+          invalidateSnapshot();
+          invalidateAgentTasks();
+        }),
+        ws.on("task:cancelled", () => {
+          invalidateSnapshot();
+          invalidateAgentTasks();
+        }),
 
         // Recover all presence inputs after missed sweeper transitions.
         ws.onReconnect(() => {
           invalidateRuntimes();
           invalidateAgents();
           invalidateSnapshot();
+          invalidateAgentTasks();
         }),
       ];
     },

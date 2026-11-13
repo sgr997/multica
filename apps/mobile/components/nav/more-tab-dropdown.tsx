@@ -67,7 +67,11 @@ import { cn } from "@/lib/utils";
 const TAB_BAR_HEIGHT = 49;
 
 interface NavItem {
-  labelKey: "more_menu.pinned" | "more_menu.issues" | "more_menu.projects";
+  labelKey:
+    | "more_menu.pinned"
+    | "more_menu.issues"
+    | "more_menu.projects"
+    | "more_menu.agents";
   /** SF Symbol name, rendered via expo-image `source: "sf:<name>"`. */
   icon: string;
   /** Path under /:slug/ — final href is `/${slug}${path}`. */
@@ -78,6 +82,7 @@ const NAV_ITEMS: NavItem[] = [
   { labelKey: "more_menu.pinned", icon: "pin", path: "/more/pins" },
   { labelKey: "more_menu.issues", icon: "list.bullet", path: "/more/issues" },
   { labelKey: "more_menu.projects", icon: "square.stack", path: "/more/projects" },
+  { labelKey: "more_menu.agents", icon: "person.2", path: "/more/agents" },
 ];
 
 export function MoreTabDropdownAnchor({
