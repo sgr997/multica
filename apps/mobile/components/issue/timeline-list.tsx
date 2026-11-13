@@ -42,6 +42,7 @@ import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import { useCommentSelectStore } from "@/data/comment-select-store";
+import { subscribeTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
 import {
   isAtBottomFromMetrics,
   recordedUserOffset,
@@ -461,6 +462,41 @@ export function TimelineList({
     });
     return () => sub.remove();
   }, [logOffset, markRestoring]);
+
+  // ── Offset survives the header action sheet ───────────────────────────
+  //
+  // `ActionSheetIOS` is neither a route nor a reliable AppState transition,
+  // so the screen calls us directly when its sheet closes (including
+  // "cancel"). Two frames cover the dismissal's detach/re-attach; the short
+  // follow-up catches a re-anchor that lands just after it, which is the
+  // "the list jumps back to the top" report this exists for.
+  useEffect(
+    () =>
+      subscribeTimelineOffsetRestore(() => {
+        if (
+          !shouldRestoreOffsetOnRefocus({
+            savedOffset: userOffsetRef.current,
+            atBottom: isAtBottomRef.current,
+          })
+        ) {
+          return;
+        }
+        logOffset("action-sheet-restore");
+        const target = userOffsetRef.current;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            markRestoring();
+            listRef.current?.scrollToOffset({ offset: target, animated: false });
+          });
+        });
+        setTimeout(() => {
+          if (userDraggingRef.current) return;
+          markRestoring();
+          listRef.current?.scrollToOffset({ offset: target, animated: false });
+        }, 320);
+      }),
+    [logOffset, markRestoring],
+  );
 
   const onJumpToNew = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });

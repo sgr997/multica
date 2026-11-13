@@ -44,6 +44,7 @@ import { useViewedIssuesStore } from "@/data/viewed-issues-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
+import { requestTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
 import { useT } from "@/lib/i18n";
 
 export default function IssueDetail() {
@@ -154,6 +155,11 @@ export default function IssueDetail() {
         title: issue.identifier,
       },
       (i) => {
+        // The sheet is gone by the time this runs (and it runs for "cancel"
+        // too). Its presentation can detach the timeline's native list
+        // without a route change, so do not wait for a symptom — put the
+        // reader's offset back before any action below navigates.
+        requestTimelineOffsetRestore();
         const action = actions[i];
         if (action === "pin") {
           createPin.mutate({ item_type: "issue", item_id: issue.id });
