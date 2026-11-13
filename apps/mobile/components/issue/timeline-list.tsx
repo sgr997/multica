@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   RefreshControl,
   View,
@@ -42,7 +43,9 @@ import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import {
+  isAtBottomFromMetrics,
   recordedUserOffset,
+  shouldRecoverFromUnintendedTop,
   shouldRestoreOffsetAfterResize,
   shouldRestoreOffsetOnRefocus,
   viewportChanged,
@@ -134,13 +137,25 @@ export function TimelineList({
   }, [issue.description, issueAttachments, data]);
 
   const listRef = useRef<FlashListRef<TimelineRow>>(null);
-  // Last offset the *reader* chose (drag or momentum in flight). Layout-
-  // induced re-anchors and programmatic scrolls never write it, so it is
-  // safe to re-apply after a viewport resize.
+  // Last offset the reader's finger produced (drag + momentum). Programmatic
+  // restores never write it, so it is safe to re-apply at any later point.
   const userOffsetRef = useRef(0);
   const userDraggingRef = useRef(false);
   const viewportHeightRef = useRef(0);
   const restoreRafRef = useRef<number | null>(null);
+  // Set while we are applying an offset ourselves. Scroll events caused by
+  // that restore must not overwrite the saved offset (it would ratify
+  // whatever the platform did) and must not trip the unintended-top
+  // detector. Held for two frames, which is how long FlashList needs to
+  // deliver the resulting scroll event.
+  const restoringRef = useRef(false);
+  const restoringFramesRef = useRef<number | null>(null);
+  const metricsRef = useRef({
+    contentHeight: 0,
+    offsetY: 0,
+    viewportHeight: 0,
+  });
+  const previousOffsetRef = useRef(0);
   // Gates single-shot per (commentId, nonce) tuple. Re-tap from inbox
   // bumps the nonce → ref no longer matches → effect re-fires.
   const lastStampRef = useRef<string | null>(null);
@@ -155,6 +170,9 @@ export function TimelineList({
     return () => {
       if (restoreRafRef.current != null) {
         cancelAnimationFrame(restoreRafRef.current);
+      }
+      if (restoringFramesRef.current != null) {
+        cancelAnimationFrame(restoringFramesRef.current);
       }
     };
   }, []);
@@ -195,39 +213,124 @@ export function TimelineList({
   // content below the viewport. Tapping the chip scrolls to bottom and
   // clears the counter; reaching the bottom by hand also clears it.
   const [newCount, setNewCount] = useState(0);
-  const isAtBottomRef = useRef(true);
+  // Measured on every scroll / content-size pass; never assumed. `false`
+  // until the list has a viewport means "unknown", which the restores below
+  // treat conservatively (they only act on a saved offset).
+  const isAtBottomRef = useRef(false);
   const lastDataLenRef = useRef(0);
   useEffect(() => {
+    const wasEmpty = lastDataLenRef.current === 0;
     const grew = data.length > lastDataLenRef.current;
     const diff = data.length - lastDataLenRef.current;
     lastDataLenRef.current = data.length;
     if (!grew) return;
-    // `isAtBottomRef` defaults to `true` so the initial 0→N load is treated
-    // as "user is already at the bottom" and the chip stays silent until a
-    // later WS append arrives while the user is scrolled up.
+    // The first 0→N load is not "new messages arriving while you read";
+    // keep the chip silent until a later append lands with the reader
+    // scrolled up.
+    if (wasEmpty) return;
     if (isAtBottomRef.current) return;
     setNewCount((prev) => prev + diff);
   }, [data.length]);
 
+  /** Mark the next two frames as our own scroll, not the reader's. */
+  const markRestoring = useCallback(() => {
+    restoringRef.current = true;
+    if (restoringFramesRef.current != null) {
+      cancelAnimationFrame(restoringFramesRef.current);
+    }
+    restoringFramesRef.current = requestAnimationFrame(() => {
+      restoringFramesRef.current = requestAnimationFrame(() => {
+        restoringFramesRef.current = null;
+        restoringRef.current = false;
+      });
+    });
+  }, []);
+
+  /** Re-apply the offset the reader last chose, if there is one. */
+  const applySavedOffset = useCallback(() => {
+    const target = userOffsetRef.current;
+    if (target <= 1) return;
+    markRestoring();
+    listRef.current?.scrollToOffset({ offset: target, animated: false });
+  }, [markRestoring]);
+
+  const logOffset = useCallback(
+    (phase: string, extra: Record<string, unknown> = {}) => {
+      if (!__DEV__) return;
+      console.log("[timeline-offset]", {
+        phase,
+        offsetY: Math.round(metricsRef.current.offsetY),
+        saved: Math.round(userOffsetRef.current),
+        dragging: userDraggingRef.current,
+        restoring: restoringRef.current,
+        atBottom: isAtBottomRef.current,
+        ...extra,
+      });
+    },
+    [],
+  );
+
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-      userOffsetRef.current = recordedUserOffset(
-        userOffsetRef.current,
-        contentOffset.y,
-        userDraggingRef.current,
-      );
-      const distFromBottom =
-        contentSize.height - (contentOffset.y + layoutMeasurement.height);
+      const previousOffsetY = previousOffsetRef.current;
+      metricsRef.current = {
+        contentHeight: contentSize.height,
+        offsetY: contentOffset.y,
+        viewportHeight: layoutMeasurement.height,
+      };
+      previousOffsetRef.current = contentOffset.y;
+
       const wasAtBottom = isAtBottomRef.current;
-      isAtBottomRef.current = distFromBottom < AT_BOTTOM_SLACK_PX;
+      isAtBottomRef.current = isAtBottomFromMetrics(
+        metricsRef.current,
+        AT_BOTTOM_SLACK_PX,
+      );
       // Reaching the bottom clears the unread-new chip — same iMessage /
       // chat-app semantic: "I've caught up".
       if (!wasAtBottom && isAtBottomRef.current && newCount > 0) {
         setNewCount(0);
       }
+
+      // Backstop for a re-anchor we have no event for (ActionSheet, native
+      // detach): a sudden jump to the top that no finger produced. Restore
+      // before recording, so the bad offset never becomes the saved value.
+      if (
+        shouldRecoverFromUnintendedTop({
+          savedOffset: userOffsetRef.current,
+          previousOffsetY,
+          offsetY: contentOffset.y,
+          userInteracting: userDraggingRef.current,
+          restoring: restoringRef.current,
+        })
+      ) {
+        logOffset("recover-unintended-top", { previousOffsetY });
+        applySavedOffset();
+        return;
+      }
+
+      userOffsetRef.current = recordedUserOffset(
+        userOffsetRef.current,
+        contentOffset.y,
+        { restoring: restoringRef.current },
+      );
     },
-    [newCount],
+    [applySavedOffset, logOffset, newCount],
+  );
+
+  /** Content-height changes move the bottom edge; re-measure without a scroll. */
+  const handleContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      metricsRef.current = {
+        ...metricsRef.current,
+        contentHeight: height,
+      };
+      isAtBottomRef.current = isAtBottomFromMetrics(
+        metricsRef.current,
+        AT_BOTTOM_SLACK_PX,
+      );
+    },
+    [],
   );
 
   // ── Scroll-offset ownership across viewport changes ───────────────────
@@ -245,6 +348,10 @@ export function TimelineList({
       const nextHeight = event.nativeEvent.layout.height;
       const resized = viewportChanged(viewportHeightRef.current, nextHeight);
       viewportHeightRef.current = nextHeight;
+      metricsRef.current = {
+        ...metricsRef.current,
+        viewportHeight: nextHeight,
+      };
       if (!resized) return;
       // A reader who was at the bottom should stay at the bottom when the
       // viewport changes (keyboard away, sheet dismissed): re-pinning to the
@@ -259,8 +366,10 @@ export function TimelineList({
           hasDeepLinkTarget: landingPending,
         })
       ) {
+        logOffset("layout-resize-skip");
         return;
       }
+      logOffset("layout-resize-restore", { wasAtBottom, nextHeight });
       const target = userOffsetRef.current;
       // Let the resize settle (and any re-anchor it triggered) before
       // re-applying; two frames covers the native layout + MVCP pass.
@@ -270,8 +379,10 @@ export function TimelineList({
           restoreRafRef.current = null;
           if (userDraggingRef.current) return;
           if (wasAtBottom) {
+            markRestoring();
             listRef.current?.scrollToEnd({ animated: false });
           } else {
+            markRestoring();
             listRef.current?.scrollToOffset({
               offset: target,
               animated: false,
@@ -280,7 +391,7 @@ export function TimelineList({
         });
       });
     },
-    [landingPending],
+    [landingPending, logOffset, markRestoring],
   );
 
   // ── Offset survives a presented sheet ─────────────────────────────────
@@ -304,10 +415,12 @@ export function TimelineList({
     ) {
       return;
     }
+    logOffset("refocus-restore");
     const target = userOffsetRef.current;
     let second: number | null = null;
     const first = requestAnimationFrame(() => {
       second = requestAnimationFrame(() => {
+        markRestoring();
         listRef.current?.scrollToOffset({ offset: target, animated: false });
       });
     });
@@ -315,7 +428,39 @@ export function TimelineList({
       cancelAnimationFrame(first);
       if (second != null) cancelAnimationFrame(second);
     };
-  }, [isFocused]);
+  }, [isFocused, logOffset, markRestoring]);
+
+  // ── Offset survives an ActionSheet ────────────────────────────────────
+  //
+  // `ActionSheetIOS` is not a route: `useIsFocused` never changes, yet the
+  // presented controller can detach the native list and bring it back at the
+  // top. AppState reports the transient `inactive` for those platform
+  // presentations, so use the return to `active` as the trigger.
+  const appStateRef = useRef(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      const previous = appStateRef.current;
+      appStateRef.current = next;
+      if (next !== "active" || previous === "active") return;
+      if (
+        !shouldRestoreOffsetOnRefocus({
+          savedOffset: userOffsetRef.current,
+          atBottom: isAtBottomRef.current,
+        })
+      ) {
+        return;
+      }
+      logOffset("appstate-restore", { previous });
+      const target = userOffsetRef.current;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          markRestoring();
+          listRef.current?.scrollToOffset({ offset: target, animated: false });
+        });
+      });
+    });
+    return () => sub.remove();
+  }, [logOffset, markRestoring]);
 
   const onJumpToNew = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
@@ -520,6 +665,7 @@ export function TimelineList({
           );
         }}
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
         // Any user-initiated scroll exits comment text-selection mode —
         // matches iMessage's behavior where scrolling implicitly commits /
         // dismisses the selection caret. Hooks both drag-start and the

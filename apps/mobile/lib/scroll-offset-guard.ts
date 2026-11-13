@@ -51,18 +51,74 @@ export function shouldRestoreOffsetAfterResize({
 /**
  * Which offset should a resize restore to?
  *
- * Only offsets the reader actually chose count: a scroll that happened while
- * a drag or its momentum was in flight. Layout-induced re-anchors and
- * programmatic scrolls are ignored, so a reset-to-top can never become the
- * value we restore. Returns 0 (nothing to restore) for a list the reader has
- * not scrolled.
+ * Every scroll the reader's finger produced counts — the drag AND the
+ * momentum that follows it — so the saved value tracks where they actually
+ * stopped rather than where they lifted their finger. Only our own
+ * programmatic restores are excluded (`restoring`), because recording those
+ * would make the current position ratify itself.
+ *
+ * Negative offsets (pull-to-refresh overscroll) clamp to 0.
  */
 export function recordedUserOffset(
   current: number,
   offsetY: number,
-  userInteracting: boolean,
+  { restoring }: { restoring: boolean },
 ): number {
-  return userInteracting ? offsetY : current;
+  if (restoring) return current;
+  return offsetY > 0 ? offsetY : 0;
+}
+
+/** One scroll event moving at least this far is a re-anchor, not a gesture. */
+export const UNINTENDED_TOP_JUMP_PX = 200;
+
+/**
+ * Did the list jump to the top without the reader asking?
+ *
+ * The backstop for every re-anchor we do not have an event for: a presented
+ * ActionSheet, a native list detach, a platform quirk. The signature is a
+ * single large upward jump that ends at zero while nothing user-driven is in
+ * flight. Small deltas are ignored on purpose — a status-bar "scroll to top"
+ * is animated and arrives a few dozen pixels at a time, so it never matches
+ * this shape and the reader keeps that gesture.
+ */
+export function shouldRecoverFromUnintendedTop({
+  savedOffset,
+  previousOffsetY,
+  offsetY,
+  userInteracting,
+  restoring,
+}: {
+  savedOffset: number;
+  previousOffsetY: number;
+  offsetY: number;
+  userInteracting: boolean;
+  restoring: boolean;
+}): boolean {
+  if (restoring || userInteracting) return false;
+  if (savedOffset <= 1 || offsetY > 1) return false;
+  return previousOffsetY - offsetY >= UNINTENDED_TOP_JUMP_PX;
+}
+
+/**
+ * Is the bottom of the content visible?
+ *
+ * Computed from real geometry on every scroll/layout pass — never from a
+ * hard-coded initial `true`, which would claim "at the bottom" before the
+ * list has been measured and skip restores that were actually needed.
+ * Content shorter than the viewport (or not measured yet) counts as bottom
+ * only once the viewport exists.
+ */
+export function isAtBottomFromMetrics(
+  {
+    contentHeight,
+    offsetY,
+    viewportHeight,
+  }: { contentHeight: number; offsetY: number; viewportHeight: number },
+  slack: number = 80,
+): boolean {
+  if (viewportHeight <= 0) return false;
+  if (contentHeight <= viewportHeight) return true;
+  return contentHeight - (offsetY + viewportHeight) <= slack;
 }
 
 /**
