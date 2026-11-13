@@ -35,16 +35,8 @@ describe("run transcript route", () => {
     expect(isRunTranscriptTaskId(undefined)).toBe(false);
   });
 
-  it("opens the only active run directly, but lists several", () => {
-    expect(runSurfaceRoute("acme", "issue-7", ["task-9"])).toEqual(
-      runTranscriptRoute("acme", "issue-7", "task-9"),
-    );
-    expect(runSurfaceRoute("acme", "issue-7", ["task-9", "task-10"])).toEqual({
-      pathname: "/[workspace]/issue/[id]/runs",
-      params: { workspace: "acme", id: "issue-7" },
-    });
-    // No active run yet still lands on the sheet (past runs live there).
-    expect(runSurfaceRoute("acme", "issue-7", [])).toEqual({
+  it("always opens the runs list, never a single active run", () => {
+    expect(runSurfaceRoute("acme", "issue-7")).toEqual({
       pathname: "/[workspace]/issue/[id]/runs",
       params: { workspace: "acme", id: "issue-7" },
     });

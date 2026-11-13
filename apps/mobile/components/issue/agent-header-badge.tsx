@@ -10,9 +10,10 @@
  * Apple HIG "Progress Indicators" + the agent-UX "ambient status badge"
  * pattern (https://www.aiuxdesign.guide/patterns/agent-status-monitoring).
  *
- * Tap opens the run itself when exactly one is active (live transcript),
- * otherwise the `issue/[id]/runs` formSheet route — the in-card
- * AgentActivityRow does the same. Two entry points, same destination.
+ * Tap always opens the `issue/[id]/runs` formSheet route, where active and
+ * past runs are listed together — the in-card AgentActivityRow does the
+ * same. Two entry points, same destination; a live transcript is one row
+ * away.
  */
 import { Pressable } from "react-native";
 import { router } from "expo-router";
@@ -47,13 +48,7 @@ export function AgentHeaderBadge({ issueId }: Props) {
     <Pressable
       onPress={() => {
         if (!wsSlug) return;
-        router.push(
-          runSurfaceRoute(
-            wsSlug,
-            issueId,
-            active.map((task) => task.id),
-          ),
-        );
+        router.push(runSurfaceRoute(wsSlug, issueId));
       }}
       hitSlop={8}
       accessibilityLabel={t("a11y.agent_working")}
