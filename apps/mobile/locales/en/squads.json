@@ -1,0 +1,95 @@
+{
+  "tab": {
+    "agents": "Agents",
+    "squads": "Squads"
+  },
+  "list": {
+    "search_placeholder": "Search squads",
+    "empty": "No squads yet",
+    "empty_filtered": "No squads match",
+    "load_failed": "Couldn't load squads: {{message}}",
+    "scope_all": "All squads",
+    "scope_mine": "My squads",
+    "new_squad": "New squad",
+    "archived": "Archived",
+    "member_count": "{{count}} members",
+    "no_leader": "No leader",
+    "leader_prefix": "Led by {{name}}"
+  },
+  "status": {
+    "working": "Working",
+    "idle": "Idle",
+    "offline": "Offline",
+    "unstable": "Unstable",
+    "archived": "Archived"
+  },
+  "detail": {
+    "load_failed": "Couldn't load this squad.",
+    "not_found": "Squad not found",
+    "not_found_description": "It may have been archived or deleted.",
+    "back_to_list": "All squads",
+    "edit": "Edit details",
+    "members": "Members",
+    "add_member": "Add member",
+    "no_members": "No members yet. Add agents or teammates so assigned work has somewhere to go.",
+    "archived_notice": "This squad is archived and read-only.",
+    "leader": "Leader",
+    "role_placeholder": "Add role…",
+    "member_menu": "Actions for {{name}}",
+    "set_leader": "Make leader",
+    "remove_member": "Remove from squad",
+    "remove_confirm_title": "Remove {{name}}?",
+    "remove_confirm_message": "They will stop receiving work routed through this squad.",
+    "remove": "Remove",
+    "menu_aria": "Squad actions",
+    "archive": "Archive squad",
+    "archive_title": "Archive squad?",
+    "archive_message": "Issues assigned to this squad move to its leader. Type the squad name to confirm.",
+    "archive_type_hint": "Squad name",
+    "archive_confirm": "Archive",
+    "archive_cancel": "Cancel",
+    "archive_failed": "Couldn't archive squad",
+    "working_on": "Working on",
+    "and_more": "+{{count}} more",
+    "type_agent": "Agent",
+    "type_member": "Member"
+  },
+  "form": {
+    "name": "Name",
+    "name_placeholder": "Squad name",
+    "description": "Description",
+    "description_placeholder": "What is this squad responsible for?",
+    "leader": "Leader agent",
+    "leader_placeholder": "Choose a leader agent",
+    "members": "Members",
+    "members_placeholder": "Choose agents or teammates",
+    "members_count": "{{count}} selected",
+    "create": "Create",
+    "creating": "Creating…",
+    "create_failed": "Couldn't create squad",
+    "discard_title": "Discard squad?",
+    "discard_message": "Your draft will be lost.",
+    "keep_editing": "Keep editing",
+    "leader_required": "Choose a leader agent",
+    "members_add_failed": "Squad created, but some members couldn't be added."
+  },
+  "edit": {
+    "save": "Save",
+    "saving": "Saving…",
+    "save_failed": "Couldn't save squad"
+  },
+  "member_picker": {
+    "title": "Add members",
+    "search_placeholder": "Search members or agents",
+    "members_section": "Members",
+    "agents_section": "Agents",
+    "no_matches": "No matches",
+    "selected": "{{count}} selected",
+    "done": "Done"
+  },
+  "leader_picker": {
+    "title": "Choose leader",
+    "search_placeholder": "Search agents",
+    "no_matches": "No agents match"
+  }
+}

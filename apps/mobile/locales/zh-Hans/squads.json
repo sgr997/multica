@@ -1,0 +1,95 @@
+{
+  "tab": {
+    "agents": "智能体",
+    "squads": "小队"
+  },
+  "list": {
+    "search_placeholder": "搜索小队",
+    "empty": "还没有小队",
+    "empty_filtered": "没有匹配的小队",
+    "load_failed": "小队加载失败：{{message}}",
+    "scope_all": "全部小队",
+    "scope_mine": "我参与的小队",
+    "new_squad": "新建小队",
+    "archived": "已归档",
+    "member_count": "{{count}} 名成员",
+    "no_leader": "暂无队长",
+    "leader_prefix": "队长 {{name}}"
+  },
+  "status": {
+    "working": "工作中",
+    "idle": "空闲",
+    "offline": "离线",
+    "unstable": "不稳定",
+    "archived": "已归档"
+  },
+  "detail": {
+    "load_failed": "小队加载失败。",
+    "not_found": "小队不存在",
+    "not_found_description": "它可能已被归档或删除。",
+    "back_to_list": "全部小队",
+    "edit": "编辑详情",
+    "members": "成员",
+    "add_member": "添加成员",
+    "no_members": "还没有成员。添加智能体或同事，小队才有可以接收任务的人。",
+    "archived_notice": "该小队已归档，当前为只读状态。",
+    "leader": "队长",
+    "role_placeholder": "添加角色…",
+    "member_menu": "{{name}} 的操作",
+    "set_leader": "设为队长",
+    "remove_member": "移出小队",
+    "remove_confirm_title": "移除 {{name}}？",
+    "remove_confirm_message": "该成员将不再接收通过这个小队分派的任务。",
+    "remove": "移除",
+    "menu_aria": "小队操作",
+    "archive": "归档小队",
+    "archive_title": "归档小队？",
+    "archive_message": "小队当前的任务会转给队长。请输入小队名称确认。",
+    "archive_type_hint": "小队名称",
+    "archive_confirm": "归档",
+    "archive_cancel": "取消",
+    "archive_failed": "归档小队失败",
+    "working_on": "正在处理",
+    "and_more": "还有 {{count}} 个",
+    "type_agent": "智能体",
+    "type_member": "成员"
+  },
+  "form": {
+    "name": "名称",
+    "name_placeholder": "小队名称",
+    "description": "描述",
+    "description_placeholder": "这个小队负责什么？",
+    "leader": "队长智能体",
+    "leader_placeholder": "选择队长智能体",
+    "members": "成员",
+    "members_placeholder": "选择智能体或同事",
+    "members_count": "已选 {{count}} 个",
+    "create": "创建",
+    "creating": "创建中…",
+    "create_failed": "创建小队失败",
+    "discard_title": "放弃小队？",
+    "discard_message": "草稿将会丢失。",
+    "keep_editing": "继续编辑",
+    "leader_required": "请选择队长智能体",
+    "members_add_failed": "小队已创建，但部分成员添加失败。"
+  },
+  "edit": {
+    "save": "保存",
+    "saving": "保存中…",
+    "save_failed": "保存小队失败"
+  },
+  "member_picker": {
+    "title": "添加成员",
+    "search_placeholder": "搜索成员或智能体",
+    "members_section": "成员",
+    "agents_section": "智能体",
+    "no_matches": "没有匹配项",
+    "selected": "已选 {{count}} 个",
+    "done": "完成"
+  },
+  "leader_picker": {
+    "title": "选择队长",
+    "search_placeholder": "搜索智能体",
+    "no_matches": "没有匹配的智能体"
+  }
+}

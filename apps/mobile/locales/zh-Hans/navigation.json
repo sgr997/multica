@@ -4,13 +4,13 @@
     "inbox": "收件箱",
     "my_issues": "我的任务",
     "chat": "聊天",
+    "agents": "智能体",
     "more": "更多"
   },
   "more_menu": {
     "pinned": "已固定",
     "issues": "任务",
     "projects": "项目",
-    "agents": "智能体",
     "account_settings": "账号设置"
   },
   "routes": {

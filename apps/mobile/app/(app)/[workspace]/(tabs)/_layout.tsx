@@ -9,7 +9,7 @@
  * DropdownMenu popover anchored above the tab. The popover is rendered
  * by `<MoreTabDropdownAnchor />` as a sibling of `<Tabs>`, NOT as a
  * `tabBarButton` replacement: keeping the real tab button intact means
- * the icon + "More" label render identically to the other three tabs.
+ * the icon + "More" label render identically to the other tabs.
  * We just open the dropdown imperatively from `listeners.tabPress` via
  * the exposed `TriggerRef.open()`.
  *
@@ -19,6 +19,12 @@
  *
  * Active / inactive tint colors are derived from the current colour
  * scheme via THEME so dark mode picks contrasting values automatically.
+ *
+ * Tab order and iconography live in `lib/tab-config.ts`; this file only
+ * supplies the runtime bindings (badges, the More popover trigger). Screens
+ * stay mounted when the user switches tabs (React Navigation's `lazy`
+ * mounts on first visit and never unmounts), so list scroll position and
+ * filter state survive tab switches without a refetch.
  */
 import { useRef } from "react";
 import { Tabs } from "expo-router";
@@ -34,6 +40,7 @@ import {
 } from "@/lib/unread-counts";
 import { MoreTabDropdownAnchor } from "@/components/nav/more-tab-dropdown";
 import { useT } from "@/lib/i18n";
+import { TABS } from "@/lib/tab-config";
 
 // Only override backgroundColor — @react-navigation/elements Badge internally
 // sets borderRadius = size/2, height = size, minWidth = size, so a single
@@ -70,74 +77,57 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          // UIKit tab bars ignore Dynamic Type for their labels; be explicit
+          // on every platform so a five-item bar cannot truncate at the
+          // largest accessibility sizes.
+          tabBarAllowFontScaling: false,
+          lazy: true,
           tabBarActiveTintColor: theme.foreground,
           tabBarInactiveTintColor: theme.mutedForeground,
           tabBarStyle: { backgroundColor: theme.background },
           tabBarLabelStyle: { fontSize: 11 },
         }}
       >
-        <Tabs.Screen
-          name="inbox"
-          options={{
-            title: t("tabs.inbox"),
-            tabBarBadge: inboxBadge,
-            tabBarBadgeStyle: BADGE_STYLE,
-            tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:tray.fill" : "sf:tray"}
-                style={{ width: size, height: size, color }}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="my-issues"
-          options={{
-            title: t("tabs.my_issues"),
-            tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:checklist" : "sf:checklist.unchecked"}
-                style={{ width: size, height: size, color }}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="chat"
-          options={{
-            title: t("tabs.chat"),
-            tabBarBadge: chatBadge,
-            tabBarBadgeStyle: BADGE_STYLE,
-            tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:bubble.left.fill" : "sf:bubble.left"}
-                style={{ width: size, height: size, color }}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="more"
-          options={{
-            title: t("tabs.more"),
-            tabBarIcon: ({ color, size }) => (
-              <Image
-                source="sf:ellipsis"
-                style={{ width: size, height: size, color }}
-              />
-            ),
-          }}
-          listeners={() => ({
-            tabPress: (e) => {
-              // Don't navigate to the (stub) /more screen — open the
-              // dropdown popover instead. The trigger is invisible and
-              // mounted in MoreTabDropdownAnchor below; ref.open() also
-              // measures its rect so the popover anchors correctly.
-              e.preventDefault();
-              moreTriggerRef.current?.open();
-            },
-          })}
-        />
+        {TABS.map((tab) => {
+          const badge =
+            tab.badge === "inbox"
+              ? inboxBadge
+              : tab.badge === "chat"
+                ? chatBadge
+                : undefined;
+          return (
+            <Tabs.Screen
+              key={tab.route}
+              name={tab.route}
+              options={{
+                title: t(tab.labelKey),
+                tabBarBadge: badge,
+                tabBarBadgeStyle: tab.badge ? BADGE_STYLE : undefined,
+                tabBarIcon: ({ color, size, focused }) => (
+                  <Image
+                    source={`sf:${focused ? tab.icon.active : tab.icon.inactive}`}
+                    style={{ width: size, height: size, color }}
+                  />
+                ),
+              }}
+              listeners={
+                tab.route === "more"
+                  ? () => ({
+                      tabPress: (e) => {
+                        // Don't navigate to the (stub) /more screen — open the
+                        // dropdown popover instead. The trigger is invisible
+                        // and mounted in MoreTabDropdownAnchor below;
+                        // ref.open() also measures its rect so the popover
+                        // anchors correctly.
+                        e.preventDefault();
+                        moreTriggerRef.current?.open();
+                      },
+                    })
+                  : undefined
+              }
+            />
+          );
+        })}
       </Tabs>
 
       <MoreTabDropdownAnchor triggerRef={moreTriggerRef} />

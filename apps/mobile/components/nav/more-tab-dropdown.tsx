@@ -6,7 +6,7 @@
  * parity with Inbox / My Issues / Chat).
  *
  * The wrapper View is absolute-positioned over the More tab's screen
- * rect (right 25%, bottom = safe-area, height = tab bar). It uses
+ * rect (rightmost 1/5, bottom = safe-area, height = tab bar). It uses
  * `pointerEvents="box-none"` so taps pass through to the real tab
  * button underneath; we open the dropdown imperatively from the tab's
  * `listeners.tabPress` via the exposed `TriggerRef.open()`. The
@@ -55,6 +55,8 @@ import { workspaceListOptions } from "@/data/queries/workspaces";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useT } from "@/lib/i18n";
+import { MORE_MENU_ITEMS } from "@/lib/more-menu";
+import { TAB_BAR_ITEM_WIDTH_PERCENT } from "@/lib/tab-config";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -65,25 +67,6 @@ import { cn } from "@/lib/utils";
 // @react-navigation/bottom-tabs (`styles.tab` has no explicit height;
 // the container settles at 49 from the inner padding + icon size).
 const TAB_BAR_HEIGHT = 49;
-
-interface NavItem {
-  labelKey:
-    | "more_menu.pinned"
-    | "more_menu.issues"
-    | "more_menu.projects"
-    | "more_menu.agents";
-  /** SF Symbol name, rendered via expo-image `source: "sf:<name>"`. */
-  icon: string;
-  /** Path under /:slug/ — final href is `/${slug}${path}`. */
-  path: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { labelKey: "more_menu.pinned", icon: "pin", path: "/more/pins" },
-  { labelKey: "more_menu.issues", icon: "list.bullet", path: "/more/issues" },
-  { labelKey: "more_menu.projects", icon: "square.stack", path: "/more/projects" },
-  { labelKey: "more_menu.agents", icon: "person.2", path: "/more/agents" },
-];
 
 export function MoreTabDropdownAnchor({
   triggerRef,
@@ -112,7 +95,7 @@ export function MoreTabDropdownAnchor({
         position: "absolute",
         right: 0,
         bottom: insets.bottom,
-        width: "25%",
+        width: `${TAB_BAR_ITEM_WIDTH_PERCENT}%`,
         height: TAB_BAR_HEIGHT,
       }}
     >
@@ -155,7 +138,7 @@ export function MoreTabDropdownAnchor({
 
           <DropdownMenuSeparator />
 
-          {NAV_ITEMS.map((item) => (
+          {MORE_MENU_ITEMS.map((item) => (
             <DropdownMenuItem
               key={item.path}
               onPress={() => slug && router.push(`/${slug}${item.path}`)}

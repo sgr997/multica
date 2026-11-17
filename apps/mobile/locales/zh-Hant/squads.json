@@ -1,0 +1,95 @@
+{
+  "tab": {
+    "agents": "智慧體",
+    "squads": "小隊"
+  },
+  "list": {
+    "search_placeholder": "搜尋小隊",
+    "empty": "還沒有小隊",
+    "empty_filtered": "沒有符合的小隊",
+    "load_failed": "小隊載入失敗：{{message}}",
+    "scope_all": "全部小隊",
+    "scope_mine": "我參與的小隊",
+    "new_squad": "新增小隊",
+    "archived": "已封存",
+    "member_count": "{{count}} 名成員",
+    "no_leader": "尚無隊長",
+    "leader_prefix": "隊長 {{name}}"
+  },
+  "status": {
+    "working": "工作中",
+    "idle": "閒置",
+    "offline": "離線",
+    "unstable": "不穩定",
+    "archived": "已封存"
+  },
+  "detail": {
+    "load_failed": "小隊載入失敗。",
+    "not_found": "小隊不存在",
+    "not_found_description": "它可能已被封存或刪除。",
+    "back_to_list": "全部小隊",
+    "edit": "編輯詳情",
+    "members": "成員",
+    "add_member": "新增成員",
+    "no_members": "還沒有成員。新增智慧體或同事，小隊才有可以接收任務的人。",
+    "archived_notice": "此小隊已封存，目前為唯讀狀態。",
+    "leader": "隊長",
+    "role_placeholder": "新增角色…",
+    "member_menu": "{{name}} 的操作",
+    "set_leader": "設為隊長",
+    "remove_member": "移出小隊",
+    "remove_confirm_title": "移除 {{name}}？",
+    "remove_confirm_message": "該成員將不再接收透過此小隊分派的任務。",
+    "remove": "移除",
+    "menu_aria": "小隊操作",
+    "archive": "封存小隊",
+    "archive_title": "封存小隊？",
+    "archive_message": "小隊目前的任務會轉給隊長。請輸入小隊名稱確認。",
+    "archive_type_hint": "小隊名稱",
+    "archive_confirm": "封存",
+    "archive_cancel": "取消",
+    "archive_failed": "封存小隊失敗",
+    "working_on": "正在處理",
+    "and_more": "還有 {{count}} 個",
+    "type_agent": "智慧體",
+    "type_member": "成員"
+  },
+  "form": {
+    "name": "名稱",
+    "name_placeholder": "小隊名稱",
+    "description": "描述",
+    "description_placeholder": "這個小隊負責什麼？",
+    "leader": "隊長智慧體",
+    "leader_placeholder": "選擇隊長智慧體",
+    "members": "成員",
+    "members_placeholder": "選擇智慧體或同事",
+    "members_count": "已選 {{count}} 個",
+    "create": "建立",
+    "creating": "建立中…",
+    "create_failed": "建立小隊失敗",
+    "discard_title": "放棄小隊？",
+    "discard_message": "草稿將會遺失。",
+    "keep_editing": "繼續編輯",
+    "leader_required": "請選擇隊長智慧體",
+    "members_add_failed": "小隊已建立，但部分成員新增失敗。"
+  },
+  "edit": {
+    "save": "儲存",
+    "saving": "儲存中…",
+    "save_failed": "儲存小隊失敗"
+  },
+  "member_picker": {
+    "title": "新增成員",
+    "search_placeholder": "搜尋成員或智慧體",
+    "members_section": "成員",
+    "agents_section": "智慧體",
+    "no_matches": "沒有符合項目",
+    "selected": "已選 {{count}} 個",
+    "done": "完成"
+  },
+  "leader_picker": {
+    "title": "選擇隊長",
+    "search_placeholder": "搜尋智慧體",
+    "no_matches": "沒有符合的智慧體"
+  }
+}
