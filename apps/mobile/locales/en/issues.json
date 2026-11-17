@@ -67,6 +67,18 @@
     "edit_comment": "Edit comment",
     "no_runs": "No runs yet"
   },
+  "complete": {
+    "action": "Mark done and archive",
+    "confirm_title": "Mark as done?",
+    "confirm_body": "This will also archive this inbox notification. It disappears from your inbox and cannot be restored there, but the issue stays available under My tasks and All tasks.",
+    "confirm_action": "Mark done",
+    "success_toast": "Marked done and archived",
+    "status_failed_title": "Couldn't mark as done",
+    "status_failed_message": "The status wasn't changed. Try again.",
+    "archive_failed_title": "Marked done, but archiving failed",
+    "archive_failed_message": "The issue is done, but its inbox notification couldn't be archived. Retry now, or archive it later from the inbox.",
+    "retry_archive": "Retry archive"
+  },
   "new": {
     "title": "New issue",
     "title_placeholder": "Issue title",

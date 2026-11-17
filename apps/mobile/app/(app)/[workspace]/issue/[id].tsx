@@ -21,6 +21,7 @@ import {
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import type { Issue } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,9 @@ import {
 } from "@/data/queries/issues";
 import { ApiError } from "@/data/api";
 import { useDeleteIssue } from "@/data/mutations/issues";
+import { useCompleteInboxIssue } from "@/data/mutations/inbox-complete";
 import { pinListOptions } from "@/data/queries/pins";
+import { memberListOptions } from "@/data/queries/members";
 import { useCreatePin, useDeletePin } from "@/data/mutations/pins";
 import { useAuthStore } from "@/data/auth-store";
 import { useIssueRealtime } from "@/data/realtime/use-issue-realtime";
@@ -45,6 +48,9 @@ import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { requestTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
+import { canEditIssue } from "@/lib/issue-permissions";
+import { shouldShowInboxCompleteButton } from "@/lib/inbox-complete";
+import { useInboxToastStore } from "@/data/inbox-toast-store";
 import { useT } from "@/lib/i18n";
 
 export default function IssueDetail() {
@@ -114,6 +120,12 @@ export default function IssueDetail() {
   const issue = detail.data;
   const deleteIssue = useDeleteIssue();
   const userId = useAuthStore((s) => s.user?.id ?? null);
+  const { data: members = [] } = useQuery(memberListOptions(wsId));
+  const role = members.find((member) => member.user_id === userId)?.role ?? null;
+  const canEdit = canEditIssue(userId, role);
+  const { complete, retryArchive } = useCompleteInboxIssue(id);
+  const completeIssue = complete.mutate;
+  const retryArchiveIssue = retryArchive.mutate;
   const { data: pins } = useQuery(pinListOptions(wsId, userId));
   const isPinned =
     !!issue &&
@@ -196,6 +208,85 @@ export default function IssueDetail() {
     );
   }, [issue, wsSlug, deleteIssue, isPinned, createPin, deletePin, t]);
 
+  const finishComplete = useCallback(() => {
+    void Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Success,
+    ).catch(() => {});
+    if (from !== "inbox") return;
+    useInboxToastStore.getState().show(t("complete.success_toast"));
+    router.back();
+  }, [from, t]);
+
+  const showArchiveFailure = useCallback(
+    function showFailure() {
+      void Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Error,
+      ).catch(() => {});
+      Alert.alert(
+        t("complete.archive_failed_title"),
+        t("complete.archive_failed_message"),
+        [
+          { text: t("common:actions.cancel"), style: "cancel" },
+          {
+            text: t("complete.retry_archive"),
+            onPress: () =>
+              retryArchiveIssue(undefined, {
+                onSuccess: (result) => {
+                  if (!result) return;
+                  if (result.archiveError) {
+                    showFailure();
+                    return;
+                  }
+                  finishComplete();
+                },
+              }),
+          },
+        ],
+      );
+    },
+    [finishComplete, retryArchiveIssue, t],
+  );
+
+  const confirmComplete = useCallback(() => {
+    completeIssue(undefined, {
+      onSuccess: (result) => {
+        if (!result) return;
+        if (result.archiveError) {
+          showArchiveFailure();
+          return;
+        }
+        finishComplete();
+      },
+      onError: (error) => {
+        Alert.alert(
+          t("complete.status_failed_title"),
+          error instanceof Error && error.message
+            ? error.message
+            : t("complete.status_failed_message"),
+        );
+      },
+    });
+  }, [completeIssue, finishComplete, showArchiveFailure, t]);
+
+  const onPressComplete = useCallback(() => {
+    if (complete.isPending) return;
+    Alert.alert(
+      t("complete.confirm_title"),
+      t("complete.confirm_body"),
+      [
+        { text: t("common:actions.cancel"), style: "cancel" },
+        { text: t("complete.confirm_action"), onPress: confirmComplete },
+      ],
+    );
+  }, [complete.isPending, confirmComplete, t]);
+
+  const showComplete = shouldShowInboxCompleteButton({
+    fromInbox: from === "inbox",
+    issue,
+    canEdit,
+    isCompleting: complete.isPending,
+  });
+
   // Header options must have a stable identity. Passing a freshly created
   // `headerRight` closure inside an object literal makes react-navigation
   // re-apply the header on every render of this screen — including the
@@ -210,6 +301,19 @@ export default function IssueDetail() {
          *  so it doesn't crowd the header in the common case. See
          *  agent-header-badge.tsx. */}
         <AgentHeaderBadge issueId={id} />
+        {showComplete ? (
+          complete.isPending ? (
+            <View className="size-9 items-center justify-center">
+              <ActivityIndicator size="small" />
+            </View>
+          ) : (
+            <IconButton
+              name="checkmark"
+              onPress={onPressComplete}
+              accessibilityLabel={t("complete.action")}
+            />
+          )
+        ) : null}
         <IconButton
           name="ellipsis-horizontal"
           onPress={onPressMore}
@@ -217,7 +321,14 @@ export default function IssueDetail() {
         />
       </View>
     ),
-    [id, onPressMore, t],
+    [
+      id,
+      onPressMore,
+      t,
+      showComplete,
+      complete.isPending,
+      onPressComplete,
+    ],
   );
   const screenOptions = useMemo(
     () => ({

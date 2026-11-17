@@ -67,6 +67,18 @@
     "edit_comment": "編輯評論",
     "no_runs": "暫無執行"
   },
+  "complete": {
+    "action": "標記完成並歸檔",
+    "confirm_title": "標記為已完成？",
+    "confirm_body": "這也會歸檔這條收件匣通知。歸檔後通知會從收件匣消失，且無法在收件匣恢復；任務仍可在「我的任務」和「全部任務」裡找到。",
+    "confirm_action": "標記完成",
+    "success_toast": "已標記完成並歸檔",
+    "status_failed_title": "無法標記完成",
+    "status_failed_message": "狀態沒有改變，請重試。",
+    "archive_failed_title": "已標記完成，通知歸檔失敗",
+    "archive_failed_message": "任務已是完成狀態，但收件匣通知未能歸檔。可以現在重試，或稍後在收件匣左滑歸檔。",
+    "retry_archive": "重試歸檔"
+  },
   "new": {
     "title": "新建任務",
     "title_placeholder": "任務標題",

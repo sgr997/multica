@@ -55,6 +55,7 @@ vi.mock("@/components/ui/header", () => ({ Header: "Header" }));
 vi.mock("@/components/ui/icon-button", () => ({ IconButton: "IconButton" }));
 vi.mock("@/components/ui/app-header-actions", () => ({ HeaderActions: "HeaderActions" }));
 vi.mock("@/components/inbox/swipeable-inbox-row", () => ({ SwipeableInboxRow: "SwipeableInboxRow" }));
+vi.mock("@/components/inbox/inbox-toast", () => ({ InboxToast: "InboxToast" }));
 
 describe("Inbox navigation wiring", () => {
   beforeEach(() => vi.clearAllMocks());

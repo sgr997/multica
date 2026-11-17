@@ -67,6 +67,18 @@
     "edit_comment": "编辑评论",
     "no_runs": "暂无运行"
   },
+  "complete": {
+    "action": "标记完成并归档",
+    "confirm_title": "标记为已完成？",
+    "confirm_body": "这也会归档这条收件箱通知。归档后通知会从收件箱消失，且无法在收件箱恢复；任务仍可在「我的任务」和「全部任务」里找到。",
+    "confirm_action": "标记完成",
+    "success_toast": "已标记完成并归档",
+    "status_failed_title": "无法标记完成",
+    "status_failed_message": "状态没有改变，请重试。",
+    "archive_failed_title": "已标记完成，通知归档失败",
+    "archive_failed_message": "任务已是完成状态，但收件箱通知未能归档。可以现在重试，或稍后在收件箱左滑归档。",
+    "retry_archive": "重试归档"
+  },
   "new": {
     "title": "新建任务",
     "title_placeholder": "任务标题",

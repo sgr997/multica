@@ -16,6 +16,7 @@ import { Header } from "@/components/ui/header";
 import { IconButton } from "@/components/ui/icon-button";
 import { HeaderActions } from "@/components/ui/app-header-actions";
 import { SwipeableInboxRow } from "@/components/inbox/swipeable-inbox-row";
+import { InboxToast } from "@/components/inbox/inbox-toast";
 import { inboxListOptions } from "@/data/queries/inbox";
 import {
   useArchiveAllInbox,
@@ -179,6 +180,7 @@ export default function Inbox() {
           onRefresh={onRefresh}
         />
       )}
+      <InboxToast />
     </View>
   );
 }
