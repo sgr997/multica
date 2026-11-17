@@ -323,12 +323,23 @@ export default function WorkspaceLayout() {
             }}
         />
         <Stack.Screen
+          name="agent/new"
+          options={{
+            title: t("navigation:routes.agents"),
+            presentation: "modal",
+            // Cancel owns the discard confirmation; a swipe must not bypass
+            // it and silently throw away a half-filled form.
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
           name="agent/[id]"
           options={{
             title: t("navigation:routes.agents"),
             headerBackTitle: t("back"),
           }}
         />
+        <Stack.Screen name="agent/[id]/skills/add" options={SHEET_OPTIONS} />
         <Stack.Screen
           name="agent/[id]/edit"
           options={{

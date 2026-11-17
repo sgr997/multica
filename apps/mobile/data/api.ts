@@ -21,6 +21,7 @@ import type {
   ChatPendingTask,
   ChatSession,
   Comment,
+  CreateAgentRequest,
   CreateIssueRequest,
   CreateLabelRequest,
   CreateProjectRequest,
@@ -45,10 +46,12 @@ import type {
   Reaction,
   ReorderPinsRequest,
   RuntimeDevice,
+  RuntimeLocalSkillListRequest,
   SearchIssuesResponse,
   SearchProjectsResponse,
   ListIssueStatusesResponse,
   SendChatMessageResponse,
+  SkillSummary,
   Squad,
   NotificationPreferenceResponse,
   NotificationPreferences,
@@ -82,6 +85,7 @@ import type {
 } from "@multica/core/api/schemas";
 import {
   ActiveTasksResponseSchema,
+  AgentSkillsResponseSchema,
   AgentListSchema,
   AgentSchema,
   AgentTaskListSchema,
@@ -116,6 +120,8 @@ import {
   EMPTY_RUNTIME_LIST,
   EMPTY_SEARCH_ISSUES_RESPONSE,
   EMPTY_SEARCH_PROJECTS_RESPONSE,
+  EMPTY_SKILL_LIST,
+  EMPTY_SKILL_SEARCH_RESULTS,
   EMPTY_SQUAD_LIST,
   EMPTY_USER,
   EMPTY_WORKSPACE_LIST,
@@ -131,15 +137,19 @@ import {
   PrioritizeQueuedChatTaskResponseSchema,
   ProjectSchema,
   RuntimeListSchema,
+  RuntimeLocalSkillListRequestSchema,
   SearchIssuesResponseSchema,
   SearchProjectsResponseSchema,
   SendChatMessageResponseSchema,
+  SkillSearchCandidateListSchema,
+  SkillSummaryListSchema,
   SquadListSchema,
   TaskMessageListSchema,
   EMPTY_TASK_MESSAGE_LIST,
   UserSchema,
   WorkspaceListSchema,
 } from "./schemas";
+import type { SkillSearchCandidate } from "./schemas";
 import type { ZodType } from "zod";
 import { getCurrentSlug } from "./workspace-store";
 import { parseWithFallback } from "@/lib/parse-response";
@@ -608,6 +618,125 @@ class ApiClient {
     return parseWithFallback(raw, AgentListSchema, EMPTY_AGENT_LIST, {
       endpoint: "listAgents",
     });
+  }
+
+  async createAgent(data: CreateAgentRequest): Promise<Agent> {
+    // The create response is the row the detail screen renders next, so a
+    // drifted payload must fail instead of producing a blank agent.
+    const raw = await this.fetch<unknown>("/api/agents", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return AgentSchema.parse(raw);
+  }
+
+  // --- Workspace skills ---
+  // `GET /api/skills` is workspace-scoped (X-Workspace-Slug). The library is
+  // small enough to fetch once; the picker filters it locally.
+  async listSkills(opts?: { signal?: AbortSignal }): Promise<SkillSummary[]> {
+    return this.fetchValidated(
+      "/api/skills",
+      SkillSummaryListSchema,
+      EMPTY_SKILL_LIST,
+      { signal: opts?.signal, endpoint: "listSkills" },
+    );
+  }
+
+  /**
+   * ClawHub marketplace search (`GET /api/skills/search?q=`). Returns install
+   * candidates, not workspace skills — there is no workspace skill id to
+   * attach. The add-skill sheet therefore filters `listSkills` locally.
+   */
+  async searchSkills(
+    q: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<SkillSearchCandidate[]> {
+    const query = new URLSearchParams({ q });
+    return this.fetchValidated(
+      `/api/skills/search?${query.toString()}`,
+      SkillSearchCandidateListSchema,
+      EMPTY_SKILL_SEARCH_RESULTS,
+      { signal: opts?.signal, endpoint: "searchSkills" },
+    );
+  }
+
+  async addAgentSkills(
+    agentId: string,
+    skillIds: string[],
+  ): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/agents/${agentId}/skills/add`, {
+      method: "POST",
+      body: JSON.stringify({ skill_ids: skillIds }),
+    });
+    return AgentSkillsResponseSchema.parse(raw);
+  }
+
+  async removeAgentSkill(
+    agentId: string,
+    skillId: string,
+  ): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(
+      `/api/agents/${agentId}/skills/${skillId}`,
+      { method: "DELETE" },
+    );
+    return AgentSkillsResponseSchema.parse(raw);
+  }
+
+  async setAgentSkillEnabled(
+    agentId: string,
+    skillId: string,
+    enabled: boolean,
+  ): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(
+      `/api/agents/${agentId}/skills/${skillId}/enabled`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    return AgentSkillsResponseSchema.parse(raw);
+  }
+
+  async setAgentRuntimeSkillEnabled(
+    agentId: string,
+    data: {
+      runtime_id: string;
+      root: "provider" | "universal" | "plugin";
+      key: string;
+      name: string;
+      plugin?: string;
+      enabled: boolean;
+    },
+  ): Promise<void> {
+    await this.fetch<void>(`/api/agents/${agentId}/runtime-skills/enabled`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Runtime-local skill discovery is asynchronous: POST enqueues a request on
+  // the daemon, GET polls it. Mirrors packages/core/runtimes/local-skills.ts.
+  async initiateListLocalSkills(
+    runtimeId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<RuntimeLocalSkillListRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/local-skills`,
+      { method: "POST", signal: opts?.signal },
+    );
+    return RuntimeLocalSkillListRequestSchema.parse(raw);
+  }
+
+  async getLocalSkillListRequest(
+    runtimeId: string,
+    requestId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<RuntimeLocalSkillListRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/local-skills/${requestId}`,
+      { signal: opts?.signal },
+    );
+    return RuntimeLocalSkillListRequestSchema.parse(raw);
   }
 
   // Workspace runtimes — feeds the presence dot's availability dimension

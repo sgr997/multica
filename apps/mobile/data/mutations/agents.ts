@@ -10,10 +10,23 @@
  * list refetches.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Agent, UpdateAgentRequest } from "@multica/core/types";
+import type {
+  Agent,
+  CreateAgentRequest,
+  RuntimeLocalSkillSummary,
+  SkillSummary,
+  UpdateAgentRequest,
+} from "@multica/core/types";
 import { api } from "@/data/api";
 import { agentKeys } from "@/data/queries/agents";
 import { useWorkspaceStore } from "@/data/workspace-store";
+import {
+  mergeAgentSkills,
+  toAgentSkillSummaries,
+  withRuntimeSkillEnabled,
+  withSkillEnabled,
+  withoutSkill,
+} from "@/lib/agent-skills";
 
 function patchAgentCaches(
   qc: ReturnType<typeof useQueryClient>,
@@ -82,6 +95,178 @@ export function useUpdateAgent(agentId: string) {
     onSuccess: (server) => {
       qc.setQueryData(agentKeys.detail(wsId, agentId), server);
       patchAgentCaches(qc, wsId, agentId, server);
+    },
+  });
+}
+
+export function useAddAgentSkills(agentId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["addAgentSkills", agentId] as const,
+    mutationFn: (skills: SkillSummary[]) =>
+      api.addAgentSkills(agentId, skills.map((skill) => skill.id)),
+    onMutate: async (skills) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: agentKeys.detail(wsId, agentId) }),
+        qc.cancelQueries({ queryKey: agentKeys.all(wsId) }),
+      ]);
+      const snapshot = snapshotAgentCaches(qc, wsId, agentId);
+      const current = snapshot.detail ?? qc.getQueryData<Agent>(agentKeys.detail(wsId, agentId));
+      if (current) {
+        patchAgentCaches(qc, wsId, agentId, {
+          skills: mergeAgentSkills(current.skills, skills),
+        });
+      }
+      return snapshot;
+    },
+    onError: (_error, _skills, snapshot) => {
+      if (snapshot) restoreAgentCaches(qc, wsId, agentId, snapshot);
+    },
+    onSuccess: (server) => {
+      patchAgentCaches(qc, wsId, agentId, {
+        skills: toAgentSkillSummaries(server),
+      });
+      void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
+    },
+  });
+}
+
+export function useRemoveAgentSkill(agentId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["removeAgentSkill", agentId] as const,
+    mutationFn: (skillId: string) => api.removeAgentSkill(agentId, skillId),
+    onMutate: async (skillId) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: agentKeys.detail(wsId, agentId) }),
+        qc.cancelQueries({ queryKey: agentKeys.all(wsId) }),
+      ]);
+      const snapshot = snapshotAgentCaches(qc, wsId, agentId);
+      const current = qc.getQueryData<Agent>(agentKeys.detail(wsId, agentId));
+      if (current) {
+        patchAgentCaches(qc, wsId, agentId, {
+          skills: withoutSkill(current.skills, skillId),
+        });
+      }
+      return snapshot;
+    },
+    onError: (_error, _skillId, snapshot) => {
+      if (snapshot) restoreAgentCaches(qc, wsId, agentId, snapshot);
+    },
+    onSuccess: (server) => {
+      patchAgentCaches(qc, wsId, agentId, {
+        skills: toAgentSkillSummaries(server),
+      });
+      void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
+    },
+  });
+}
+
+export function useSetAgentSkillEnabled(agentId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["setAgentSkillEnabled", agentId] as const,
+    mutationFn: ({
+      skillId,
+      enabled,
+    }: {
+      skillId: string;
+      enabled: boolean;
+    }) => api.setAgentSkillEnabled(agentId, skillId, enabled),
+    onMutate: async ({ skillId, enabled }) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: agentKeys.detail(wsId, agentId) }),
+        qc.cancelQueries({ queryKey: agentKeys.all(wsId) }),
+      ]);
+      const snapshot = snapshotAgentCaches(qc, wsId, agentId);
+      const current = qc.getQueryData<Agent>(agentKeys.detail(wsId, agentId));
+      if (current) {
+        patchAgentCaches(qc, wsId, agentId, {
+          skills: withSkillEnabled(current.skills, skillId, enabled),
+        });
+      }
+      return snapshot;
+    },
+    onError: (_error, _vars, snapshot) => {
+      if (snapshot) restoreAgentCaches(qc, wsId, agentId, snapshot);
+    },
+    onSuccess: (server) => {
+      patchAgentCaches(qc, wsId, agentId, {
+        skills: toAgentSkillSummaries(server),
+      });
+      void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
+    },
+  });
+}
+
+export function useSetAgentRuntimeSkillEnabled(agentId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["setAgentRuntimeSkillEnabled", agentId] as const,
+    mutationFn: ({
+      runtimeId,
+      skill,
+      enabled,
+    }: {
+      runtimeId: string;
+      skill: RuntimeLocalSkillSummary;
+      enabled: boolean;
+    }) => {
+      if (!skill.root) throw new Error("runtime skill has no discovery root");
+      return api.setAgentRuntimeSkillEnabled(agentId, {
+        runtime_id: runtimeId,
+        root: skill.root,
+        key: skill.key,
+        name: skill.name,
+        plugin: skill.plugin,
+        enabled,
+      });
+    },
+    onMutate: async ({ runtimeId, skill, enabled }) => {
+      await qc.cancelQueries({ queryKey: agentKeys.detail(wsId, agentId) });
+      const snapshot = snapshotAgentCaches(qc, wsId, agentId);
+      const current = qc.getQueryData<Agent>(agentKeys.detail(wsId, agentId));
+      if (current) {
+        patchAgentCaches(qc, wsId, agentId, {
+          disabled_runtime_skills: withRuntimeSkillEnabled(
+            current.disabled_runtime_skills,
+            runtimeId,
+            skill,
+            enabled,
+          ),
+        });
+      }
+      return snapshot;
+    },
+    onError: (_error, _vars, snapshot) => {
+      if (snapshot) restoreAgentCaches(qc, wsId, agentId, snapshot);
+    },
+    // 204: no body to consume. The WS agent:status broadcast plus this
+    // invalidation reconcile the override list from the server.
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: agentKeys.detail(wsId, agentId) });
+    },
+  });
+}
+
+export function useCreateAgent() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["createAgent", wsId] as const,
+    mutationFn: (data: CreateAgentRequest) => api.createAgent(data),
+    onSuccess: (agent) => {
+      qc.setQueryData(agentKeys.detail(wsId, agent.id), agent);
+      void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
     },
   });
 }

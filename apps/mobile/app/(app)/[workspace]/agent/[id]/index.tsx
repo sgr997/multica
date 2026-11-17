@@ -32,6 +32,7 @@ import { ActorAvatar } from "@/components/ui/actor-avatar";
 import { PresenceDot } from "@/components/ui/presence-dot";
 import { agentRuntimeLabel } from "@/components/agents/agent-row";
 import { AgentRunRow } from "@/components/agents/agent-run-row";
+import { AgentSkillsSection } from "@/components/agents/agent-skills-section";
 import { Markdown } from "@/lib/markdown";
 import {
   agentDetailOptions,
@@ -462,30 +463,7 @@ export default function AgentDetailScreen() {
           />
         </Section>
 
-        <Section
-          title={t("detail.sections.capabilities")}
-          trailing={`${agent.skills.length}`}
-        >
-          {agent.skills.length === 0 ? (
-            <Text className="text-sm text-muted-foreground">
-              {t("detail.capabilities.no_skills")}
-            </Text>
-          ) : (
-            <View className="flex-row flex-wrap gap-1.5">
-              {agent.skills.map((skill) => (
-                <View
-                  key={skill.id}
-                  className="rounded-md border border-border bg-card px-2 py-1"
-                >
-                  <Text className="text-xs text-foreground">{skill.name}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-          <Text className="mt-3 text-xs text-muted-foreground">
-            {t("detail.capabilities.read_only")}
-          </Text>
-        </Section>
+        <AgentSkillsSection agent={agent} runtime={runtime} canEdit={canEdit} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -20,6 +20,7 @@ import type {
   ChatPendingTask,
   ChatSession,
   Comment,
+  DisabledRuntimeSkill,
   InboxItem,
   InboxWorkspaceUnread,
   IssueLabelsResponse,
@@ -33,9 +34,12 @@ import type {
   Project,
   ProjectResource,
   RuntimeDevice,
+  RuntimeLocalSkillListRequest,
+  RuntimeLocalSkillSummary,
   SearchIssuesResponse,
   SearchProjectsResponse,
   SendChatMessageResponse,
+  SkillSummary,
   Squad,
   TaskMessagePayload,
   User,
@@ -657,6 +661,121 @@ export const AgentSkillSummarySchema: z.ZodType<AgentSkillSummary> = z
   })
   .loose();
 
+// Workspace skill library row. Mirrors the server's SkillSummaryResponse
+// (server/internal/handler/skill.go). Mobile keeps its own schema instead of
+// reusing the core one because the core copy is free to strip fields mobile
+// needs (labels/config additions) — see ZXP-14.
+export const SkillSummarySchema: z.ZodType<SkillSummary> = z
+  .object({
+    id: z.string(),
+    workspace_id: z.string().default(""),
+    name: z.string().default(""),
+    description: z.string().default(""),
+    config: z.record(z.string(), z.unknown()).catch({}).default({}),
+    created_by: z.string().nullable().default(null),
+    created_at: z.string().default(""),
+    updated_at: z.string().default(""),
+    enabled: z.boolean().optional(),
+    labels: z.array(z.any()).catch([]).default([]),
+  })
+  .loose();
+
+export const SkillSummaryListSchema = z.array(SkillSummarySchema).default([]);
+export const EMPTY_SKILL_LIST: SkillSummary[] = [];
+
+/**
+ * Write responses for the agent-skill endpoints. The server returns the
+ * complete agent skill list (now with `enabled`), not a single row, so the
+ * mutation can replace the cache without a follow-up GET. No `.default([])`:
+ * a malformed write response must fail and roll back rather than read as
+ * "the agent now has no skills".
+ */
+export const AgentSkillsResponseSchema = z.array(SkillSummarySchema);
+
+/**
+ * GET /api/skills/search is ClawHub marketplace search, not workspace-skill
+ * search — its candidates have no workspace skill ID and cannot be attached
+ * to an agent. Kept schematised for parity with the endpoint, but the
+ * add-skill sheet filters the workspace library locally instead.
+ */
+export interface SkillSearchCandidate {
+  name: string;
+  url: string;
+  source: string;
+  repo: string | null;
+  install_count: number | null;
+  github_stars: number | null;
+  description: string;
+}
+
+export const SkillSearchCandidateSchema: z.ZodType<SkillSearchCandidate> = z
+  .object({
+    name: z.string(),
+    url: z.string().default(""),
+    source: z.string().default(""),
+    repo: z.string().nullable().default(null),
+    install_count: z.number().nullable().default(null),
+    github_stars: z.number().nullable().default(null),
+    description: z.string().default(""),
+  })
+  .loose();
+
+export const SkillSearchCandidateListSchema = z
+  .array(SkillSearchCandidateSchema)
+  .default([]);
+export const EMPTY_SKILL_SEARCH_RESULTS: SkillSearchCandidate[] = [];
+
+// Runtime-local ("built-in") skill that an agent inherits from its runtime.
+// Shape mirrors server/internal/handler/runtime_local_skills.go.
+export const RuntimeLocalSkillSummarySchema: z.ZodType<RuntimeLocalSkillSummary> =
+  z
+    .object({
+      key: z.string(),
+      name: z.string().default(""),
+      description: z.string().optional(),
+      source_path: z.string().default(""),
+      provider: z.string().default(""),
+      root: z.enum(["provider", "universal", "plugin"]).optional().catch(undefined),
+      plugin: z.string().optional(),
+      can_disable: z.boolean().optional(),
+      file_count: z.number().default(0),
+    })
+    .loose();
+
+export const RuntimeLocalSkillListRequestSchema: z.ZodType<RuntimeLocalSkillListRequest> =
+  z
+    .object({
+      id: z.string(),
+      runtime_id: z.string().default(""),
+      status: z
+        .enum([
+          "pending",
+          "running",
+          "completed",
+          "failed",
+          "timeout",
+          "conflict",
+        ])
+        .catch("failed"),
+      skills: z.array(RuntimeLocalSkillSummarySchema).catch([]).default([]),
+      supported: z.boolean().default(false),
+      error: z.string().optional(),
+      created_at: z.string().default(""),
+      updated_at: z.string().default(""),
+    })
+    .loose();
+
+export const DisabledRuntimeSkillSchema: z.ZodType<DisabledRuntimeSkill> = z
+  .object({
+    runtime_id: z.string().default(""),
+    provider: z.string().default(""),
+    root: z.enum(["provider", "universal", "plugin"]).catch("provider"),
+    key: z.string(),
+    name: z.string().optional(),
+    plugin: z.string().optional(),
+  })
+  .loose();
+
 // Agent schema is loose on every enum / structural field — the agent table is
 // where new modes/visibilities/statuses get added most often. We need only id,
 // name, avatar_url, and a couple of flags for the assignee picker + chat
@@ -710,6 +829,7 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
   service_tier: z.string().optional().catch(""),
   owner_id: z.string().nullable().default(null),
   skills: z.array(AgentSkillSummarySchema).catch([]).default([]),
+  disabled_runtime_skills: z.array(DisabledRuntimeSkillSchema).catch([]).default([]),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
   archived_at: z.string().nullable().default(null),
@@ -745,6 +865,7 @@ export const EMPTY_AGENT: Agent = {
   service_tier: "",
   owner_id: null,
   skills: [],
+  disabled_runtime_skills: [],
   created_at: "",
   updated_at: "",
   archived_at: null,
@@ -761,6 +882,7 @@ export const RuntimeSchema: z.ZodType<RuntimeDevice> = z.object({
   workspace_id: z.string().default(""),
   daemon_id: z.string().nullable().default(null),
   name: z.string().default(""),
+  custom_name: z.string().nullable().optional(),
   runtime_mode: z.string().catch("local") as unknown as z.ZodType<
     RuntimeDevice["runtime_mode"]
   >,
@@ -777,6 +899,10 @@ export const RuntimeSchema: z.ZodType<RuntimeDevice> = z.object({
   visibility: z.string().catch("private") as unknown as z.ZodType<
     RuntimeDevice["visibility"]
   >,
+  // Gates agent binding in canBindRuntime: private runtimes are limited to
+  // their owner plus this list.
+  shared_with: z.array(z.string()).catch([]).default([]),
+  profile_id: z.string().nullable().optional(),
   timezone: z.string().default(""),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
