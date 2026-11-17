@@ -16,6 +16,7 @@
     "new_squad": "New squad",
     "archived": "Archived",
     "member_count": "{{count}} members",
+    "end_of_list": "All {{count}} squads shown",
     "no_leader": "No leader",
     "leader_prefix": "Led by {{name}}"
   },

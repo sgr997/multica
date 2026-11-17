@@ -1,10 +1,10 @@
 /**
  * Squad identity marks.
  *
- * `SquadAvatar` renders the uploaded avatar, an emoji avatar, or a single
- * character from the name in a soft square. Detail headers are 56pt, so the
- * fallback must stay on one line — taking two initials from a name like
- * "Multica 维护" used to wrap into "M / 维".
+ * `SquadAvatar` renders the uploaded avatar, an emoji avatar, or a neutral
+ * squad glyph on a tinted square. Names never stand in for art: a lone "M"
+ * in a gray box reads as a broken image, while the glyph reads as "this squad
+ * has no custom icon yet".
  *
  * `SquadAvatarStack` prefers the list payload's member_preview so a squad
  * reads as a group at a glance. It caps at two 32pt avatars plus a `+N`
@@ -12,11 +12,14 @@
  * margins so row edges are never clipped.
  */
 import { Image, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Squad } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
 import { cn } from "@/lib/utils";
 import type { SquadStatusSummary } from "@/lib/squads";
+import { useColorScheme } from "@/lib/use-color-scheme";
+import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 
 const SIZES = {
@@ -25,34 +28,11 @@ const SIZES = {
   lg: 56,
 } as const;
 
-const INITIAL_FONT_SIZE: Record<keyof typeof SIZES, number> = {
-  sm: 13,
-  md: 16,
-  lg: 22,
-};
-
 const RADIUS: Record<keyof typeof SIZES, number> = {
   sm: 10,
   md: 10,
   lg: 16,
 };
-
-/**
- * One-character fallback: Latin names keep the first letter upper-cased,
- * CJK names keep the first character. Emoji-only names pass through.
- */
-export function squadInitial(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "?";
-  const first = Array.from(trimmed)[0] ?? "?";
-  const code = first.codePointAt(0) ?? 0;
-  const isCjk =
-    (code >= 0x3040 && code <= 0x30ff) ||
-    (code >= 0x3400 && code <= 0x9fff) ||
-    (code >= 0xac00 && code <= 0xd7af) ||
-    (code >= 0xf900 && code <= 0xfaff);
-  return isCjk ? first : first.toLocaleUpperCase();
-}
 
 export function SquadAvatar({
   squad,
@@ -63,6 +43,8 @@ export function SquadAvatar({
 }) {
   const px = SIZES[size];
   const radius = RADIUS[size];
+  const { colorScheme } = useColorScheme();
+  const theme = THEME[colorScheme];
   const raw = squad.avatar_url;
   const emoji = raw?.startsWith("emoji:")
     ? raw.slice("emoji:".length).trim()
@@ -96,16 +78,16 @@ export function SquadAvatar({
 
   return (
     <View
-      className="items-center justify-center bg-secondary"
+      accessible
+      accessibilityLabel={squad.name}
+      className="items-center justify-center bg-brand/10"
       style={{ width: px, height: px, borderRadius: radius }}
     >
-      <Text
-        numberOfLines={1}
-        className="font-semibold text-secondary-foreground"
-        style={{ fontSize: INITIAL_FONT_SIZE[size], lineHeight: px }}
-      >
-        {squadInitial(squad.name)}
-      </Text>
+      <Ionicons
+        name="people"
+        size={Math.round(px * 0.54)}
+        color={theme.brand}
+      />
     </View>
   );
 }
@@ -204,8 +186,27 @@ export function squadStatusDotClass(status: SquadStatusValue): string {
 }
 
 /**
- * Neutral status marker: a small colored dot plus 12pt muted text. Replaces
- * the tinted pill so the row's right edge reads as one quiet column.
+ * Text colour that belongs with the dot above. Working/idle/unstable use the
+ * darker `*-foreground` companions of the status tokens so the label keeps a
+ * readable contrast on both themes; offline stays neutral but darker than the
+ * old 12pt muted label.
+ */
+const STATUS_TEXT_CLASS: Record<SquadStatusValue, string> = {
+  working: "text-success-foreground",
+  idle: "text-info-foreground",
+  unstable: "text-warning-foreground",
+  offline: "text-foreground/70",
+  archived: "text-foreground/70",
+};
+
+export function squadStatusTextClass(status: SquadStatusValue): string {
+  return STATUS_TEXT_CLASS[status];
+}
+
+/**
+ * Status marker: a small colored dot plus a same-hue 13pt label. The dot and
+ * the text always change together, so "green dot + gray text" can no longer
+ * sit next to "blue dot + blue text" in the same roster.
  */
 export function SquadStatusLabel({
   status,
@@ -224,7 +225,7 @@ export function SquadStatusLabel({
       <View
         className={cn("size-1.5 rounded-full", squadStatusDotClass(status))}
       />
-      <Text className="text-[12px] text-muted-foreground">
+      <Text className={cn("text-[13px]", squadStatusTextClass(status))}>
         {label ?? t(`status.${status}`)}
       </Text>
     </View>

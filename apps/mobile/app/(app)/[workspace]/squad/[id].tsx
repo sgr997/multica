@@ -67,6 +67,11 @@ import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 
+// ~22 CJK characters per line. At the full column width the first line ended
+// on a single "发" and the next started with "布：", so the measure is capped
+// to keep multi-character words whole.
+const DESCRIPTION_MEASURE = 330;
+
 export default function SquadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
@@ -318,8 +323,11 @@ export default function SquadDetailScreen() {
               </View>
               {squad.description ? (
                 <Text
-                  className="mt-3 text-[15px] leading-5 text-muted-foreground"
+                  className="mt-3 text-[15px] leading-[22px] text-muted-foreground"
+                  style={{ maxWidth: DESCRIPTION_MEASURE }}
                   numberOfLines={3}
+                  lineBreakStrategyIOS="push-out"
+                  textBreakStrategy="highQuality"
                 >
                   {squad.description}
                 </Text>
@@ -332,13 +340,15 @@ export default function SquadDetailScreen() {
             </View>
 
             <View className="mt-6 flex-row items-center justify-between px-4">
-              <View className="flex-row items-baseline gap-1.5">
+              <View className="flex-row items-center gap-2">
                 <Text className="text-[17px] font-semibold text-foreground">
                   {t("detail.members")}
                 </Text>
-                <Text className="text-[13px] text-muted-foreground">
-                  {roster.data?.length ?? 0}
-                </Text>
+                <View className="min-w-6 items-center justify-center rounded-full bg-secondary px-2 py-0.5">
+                  <Text className="text-[13px] font-medium text-foreground/70">
+                    {roster.data?.length ?? 0}
+                  </Text>
+                </View>
               </View>
               {canWrite ? (
                 <Pressable

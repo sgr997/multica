@@ -45,8 +45,11 @@
     --brand: 225 71% 58%;
     --brand-foreground: 0 0% 98%;
     --success: 142 71% 45%;
+    --success-foreground: 142 71% 28%;
     --warning: 48 89% 47%;
+    --warning-foreground: 35 92% 30%;
     --info: 217 91% 60%;
+    --info-foreground: 217 91% 36%;
     --priority: 25 95% 53%;
     --code-surface: 240 4% 92%;
 
@@ -111,8 +114,11 @@
     --brand: 225 71% 58%;
     --brand-foreground: 0 0% 98%;
     --success: 142 71% 45%;
+    --success-foreground: 142 71% 60%;
     --warning: 48 89% 47%;
+    --warning-foreground: 48 89% 62%;
     --info: 217 91% 60%;
+    --info-foreground: 217 91% 72%;
     --priority: 25 95% 53%;
     /* code-surface is the ONE exception that needs a real dark value —
      * the light value (240 4% 92%) is near-white and would render code

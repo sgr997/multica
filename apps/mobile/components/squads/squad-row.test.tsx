@@ -17,8 +17,8 @@ vi.mock("@/lib/use-color-scheme", () => ({
 }));
 vi.mock("@/lib/theme", () => ({
   THEME: {
-    light: { foreground: "#111", mutedForeground: "#777" },
-    dark: { foreground: "#eee", mutedForeground: "#999" },
+    light: { foreground: "#111", mutedForeground: "#777", brand: "#3150d8" },
+    dark: { foreground: "#eee", mutedForeground: "#999", brand: "#3150d8" },
   },
 }));
 vi.mock("@/lib/i18n", () => ({

@@ -212,6 +212,13 @@ export function SquadsListBody() {
           </View>
         )
       }
+      ListFooterComponent={
+        rows.length > 0 ? (
+          <Text className="px-4 pb-2 pt-8 text-center text-[13px] text-muted-foreground">
+            {t("list.end_of_list", { count: rows.length })}
+          </Text>
+        ) : null
+      }
       ItemSeparatorComponent={() => <View className="ml-4 h-px bg-border" />}
       renderItem={({ item }) => {
         const leader = agentsById.get(item.leader_id);

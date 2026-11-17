@@ -15,6 +15,16 @@ vi.mock("react-native", () => ({
 vi.mock("@/components/ui/text", () => ({ Text: "Text" }));
 vi.mock("@/components/ui/actor-avatar", () => ({ ActorAvatar: "ActorAvatar" }));
 vi.mock("@/components/ui/icon-button", () => ({ IconButton: "IconButton" }));
+vi.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+vi.mock("@/lib/use-color-scheme", () => ({
+  useColorScheme: () => ({ colorScheme: "light" }),
+}));
+vi.mock("@/lib/theme", () => ({
+  THEME: {
+    light: { brand: "#3150d8" },
+    dark: { brand: "#3150d8" },
+  },
+}));
 vi.mock("@/lib/i18n", () => ({
   useT: () => ({
     t: (key: string, params?: { name?: string }) =>

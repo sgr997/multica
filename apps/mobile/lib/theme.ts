@@ -43,8 +43,11 @@ export const THEME = {
     brand: "hsl(225 71% 58%)",
     brandForeground: "hsl(0 0% 98%)",
     success: "hsl(142 71% 45%)",
+    successForeground: "hsl(142 71% 28%)",
     warning: "hsl(48 89% 47%)",
+    warningForeground: "hsl(35 92% 30%)",
     info: "hsl(217 91% 60%)",
+    infoForeground: "hsl(217 91% 36%)",
     priority: "hsl(25 95% 53%)",
     codeSurface: "hsl(240 4% 92%)",
     // Surface elevation tiers — see global.css for the full scale.
@@ -82,8 +85,11 @@ export const THEME = {
     brand: "hsl(225 71% 58%)",
     brandForeground: "hsl(0 0% 98%)",
     success: "hsl(142 71% 45%)",
+    successForeground: "hsl(142 71% 60%)",
     warning: "hsl(48 89% 47%)",
+    warningForeground: "hsl(48 89% 62%)",
     info: "hsl(217 91% 60%)",
+    infoForeground: "hsl(217 91% 72%)",
     priority: "hsl(25 95% 53%)",
     // code-surface is the ONE exception that needs a real dark value —
     // see global.css for rationale. Keep this in sync with .dark:root.

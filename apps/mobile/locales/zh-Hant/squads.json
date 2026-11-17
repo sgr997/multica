@@ -16,6 +16,7 @@
     "new_squad": "新增小隊",
     "archived": "已封存",
     "member_count": "{{count}} 名成員",
+    "end_of_list": "已顯示全部 {{count}} 個小隊",
     "no_leader": "尚無隊長",
     "leader_prefix": "隊長 {{name}}"
   },

@@ -16,6 +16,7 @@
     "new_squad": "新建小队",
     "archived": "已归档",
     "member_count": "{{count}} 名成员",
+    "end_of_list": "已显示全部 {{count}} 个小队",
     "no_leader": "暂无队长",
     "leader_prefix": "队长 {{name}}"
   },
