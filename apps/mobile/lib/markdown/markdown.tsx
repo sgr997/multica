@@ -182,7 +182,11 @@ export function Markdown({
     // adjacent `marginVertical` siblings collapse closer than the sum
     // would suggest — `gap` is layout-level spacing that doesn't depend
     // on margin behaviour.
-    <View className="gap-3">
+    // `flexShrink` + `minWidth: 0` keep the root inside its parent when the
+    // parent is width-bounded (chat user bubble at `max-w-[80%]`). Without
+    // them Yoga measures the native text at its intrinsic content width and
+    // paints past the bubble background.
+    <View className="gap-3" style={{ flexShrink: 1, minWidth: 0 }}>
       {segments.map((seg, i) => {
         switch (seg.type) {
           case "prose":
@@ -192,6 +196,11 @@ export function Markdown({
                 flavor="github"
                 markdown={seg.content}
                 markdownStyle={markdownStyle}
+                // Same shrink guard on the native text container: `maxWidth`
+                // 100% stops an over-long line from expanding the container
+                // past the parent width. Public prop (maps to the native
+                // view style); do not patch node_modules.
+                containerStyle={{ flexShrink: 1, maxWidth: "100%" }}
                 onLinkPress={onLinkPress}
                 selectable={selectable}
               />

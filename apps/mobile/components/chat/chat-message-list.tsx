@@ -450,7 +450,7 @@ function MessageRow({
     const body = (
       <View
         className={cn(
-          "self-end max-w-[80%] gap-1.5 rounded-xl border-2 px-3.5 py-2 transition-colors",
+          "self-end max-w-[80%] min-w-0 gap-1.5 overflow-hidden rounded-xl border-2 px-3.5 py-2 transition-colors",
           isSelecting
             ? "bg-primary/5 border-primary/30"
             : longPress.isPressed

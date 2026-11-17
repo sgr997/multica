@@ -187,6 +187,92 @@ function findCodeRanges(input: string): [number, number][] {
   return ranges.sort((a, b) => a[0] - b[0]);
 }
 
+// Ranges where inserting a soft break would change meaning: code (fenced and
+// inline) and link/image destinations. The destination is protected from the
+// closing `]` through the end of the node so the URL stays byte-identical and
+// tappable; a long label is still allowed to wrap as display text.
+function findNoWrapRanges(input: string): [number, number][] {
+  const tree = fromMarkdown(input);
+  type Node = typeof tree | (typeof tree.children)[number];
+  const pending: Node[] = [tree];
+  const ranges: [number, number][] = [];
+  while (pending.length) {
+    const node = pending.pop()!;
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
+    if (start === undefined || end === undefined) {
+      if ("children" in node) {
+        for (const child of node.children) pending.push(child);
+      }
+      continue;
+    }
+    if (node.type === "code" || node.type === "inlineCode") {
+      ranges.push([start, end]);
+    } else if (node.type === "definition") {
+      // `[label]: <url>` — never rendered, but a broken destination breaks
+      // every reference to it.
+      ranges.push([start, end]);
+    } else if (node.type === "link" || node.type === "image") {
+      const source = input.slice(start, end);
+      if (source.startsWith("<")) {
+        // Autolink (`<https://…>` / `<user@example.com>`): the whole node is
+        // the destination.
+        ranges.push([start, end]);
+      } else {
+        const destination = source.lastIndexOf("](");
+        if (destination >= 0) ranges.push([start + destination, end]);
+      }
+    } else if ("children" in node) {
+      for (const child of node.children) pending.push(child);
+    }
+  }
+  return ranges.sort((a, b) => a[0] - b[0]);
+}
+
+const SOFT_WRAP_ZWSP = "\u200b";
+// 8 printable ASCII characters stay inside an 80%-wide bubble (~286pt of
+// content on a 393pt screen) even at the largest Dynamic Type size, where a
+// character runs ~3.1× its default ~0.5em width. A ZWSP only breaks when the
+// line actually needs it, so this doesn't add ragged breaks to normal text.
+const SOFT_WRAP_CHUNK = 8;
+const SOFT_WRAP_RUN_RE = /[\x21-\x7e]{33,}/g;
+
+function softWrapAsciiRuns(text: string): string {
+  return text.replace(SOFT_WRAP_RUN_RE, (run) => {
+    let out = "";
+    for (let i = 0; i < run.length; i += SOFT_WRAP_CHUNK) {
+      if (i > 0) out += SOFT_WRAP_ZWSP;
+      out += run.slice(i, i + SOFT_WRAP_CHUNK);
+    }
+    return out;
+  });
+}
+
+/**
+ * Insert zero-width break opportunities into over-long printable-ASCII runs
+ * (200-char URLs, hashes, pasted tokens) so they wrap inside a bounded bubble
+ * instead of overflowing it horizontally.
+ *
+ * Display-only: callers must keep using the original `content` for copy — the
+ * zero-width spaces must never reach the clipboard. Skips fenced/inline code
+ * and markdown link/image destinations so code and tappable links survive.
+ * Idempotent: inserted U+200B terminates a run, so a second pass sees only
+ * chunks shorter than the threshold.
+ */
+export function softWrapLongTokens(input: string): string {
+  if (!input || !/[\x21-\x7e]{33}/.test(input)) return input;
+  const ranges = findNoWrapRanges(input);
+  let out = "";
+  let cursor = 0;
+  for (const [start, end] of ranges) {
+    if (start < cursor) continue;
+    out += softWrapAsciiRuns(input.slice(cursor, start));
+    out += input.slice(start, end);
+    cursor = end;
+  }
+  return out + softWrapAsciiRuns(input.slice(cursor));
+}
+
 /**
  * Strip embedded HTML before marked sees it. Mobile cannot do what web does
  * (rehype-raw + sanitize → render real <br> / <sub> / <details>) — RN has
@@ -226,7 +312,9 @@ export function preprocessMobileMarkdown(
   attachments?: readonly Attachment[],
 ): string {
   if (!input) return "";
-  return preprocessTaskListStrikethrough(
-    preprocessFileCards(preprocessMentionShortcodes(stripHtml(input)), attachments),
+  return softWrapLongTokens(
+    preprocessTaskListStrikethrough(
+      preprocessFileCards(preprocessMentionShortcodes(stripHtml(input)), attachments),
+    ),
   );
 }
