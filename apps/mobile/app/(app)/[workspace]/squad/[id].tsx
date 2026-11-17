@@ -1,10 +1,16 @@
 /**
  * Squad detail — one scrolling phone column.
  *
- * Order mirrors web's object page: identity header, member roster, then the
- * destructive actions in the toolbar menu. Member rows carry the same fields
- * as web (avatar, name, type, role, leader crown, agent status + active
- * issue). Management controls are hidden unless `canManageSquad` agrees with
+ * Chrome: a plain 44pt toolbar (back chevron, centered title, two independent
+ * icon buttons). The native iOS 26 header groups bar buttons into a shared
+ * glass capsule, which competed with the title; hiding it also removes the
+ * duplicate in-content title.
+ *
+ * Body: 56pt identity tile, a description capped at three lines, then the
+ * roster. Every member row is two lines — name/crown/menu, then role pill and
+ * dot status on one baseline — so leaders and regular members scan alike.
+ *
+ * Management controls are hidden unless `canManageSquad` agrees with
  * server/internal/handler/squad.go, so a read-only visitor never sees a
  * control that would 403.
  */
@@ -23,21 +29,21 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   SquadMember,
   SquadMemberStatus,
-  SquadMemberStatusValue,
 } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { TextField } from "@/components/ui/text-field";
-import { ActorAvatar } from "@/components/ui/actor-avatar";
+import { SquadAvatar } from "@/components/squads/squad-avatar";
 import {
-  SquadAvatar,
-  SquadStatusPill,
-} from "@/components/squads/squad-avatar";
+  SquadMemberRow,
+  squadMemberRoleLabel,
+} from "@/components/squads/squad-member-row";
 import {
   squadDetailOptions,
   squadKeys,
@@ -57,24 +63,9 @@ import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { canManageSquad } from "@/lib/squads";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
+import { useColorScheme } from "@/lib/use-color-scheme";
+import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
-
-const STATUS_VALUES = new Set<SquadMemberStatusValue>([
-  "working",
-  "idle",
-  "offline",
-  "unstable",
-  "archived",
-]);
-
-function memberStatusValue(
-  status: SquadMemberStatus | undefined,
-): SquadMemberStatusValue | null {
-  if (!status?.status) return null;
-  return STATUS_VALUES.has(status.status as SquadMemberStatusValue)
-    ? (status.status as SquadMemberStatusValue)
-    : null;
-}
 
 export default function SquadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -101,6 +92,7 @@ export default function SquadDetailScreen() {
   const archive = useArchiveSquad(id);
   const removeMember = useRemoveSquadMember(id);
   const updateSquad = useUpdateSquad(id);
+  const updateRole = useUpdateSquadMemberRole(id);
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   // The delete event can arrive before the DELETE response. When this device
@@ -140,6 +132,37 @@ export default function SquadDetailScreen() {
         member.member_id.slice(0, 8)
       : membersById.get(member.member_id)?.name ??
         member.member_id.slice(0, 8);
+
+  const promptRole = (member: SquadMember) => {
+    if (!canWrite) return;
+    Alert.prompt(
+      t("detail.role_edit_title"),
+      t("detail.role_edit_message", { name: memberName(member) }),
+      (value?: string) => {
+        if (value === undefined) return;
+        const next = value.trim();
+        if (next === member.role.trim()) return;
+        updateRole.mutate(
+          {
+            member_type: member.member_type,
+            member_id: member.member_id,
+            role: next,
+          },
+          {
+            onError: (error) =>
+              Alert.alert(
+                t("detail.role_edit_title"),
+                error instanceof Error
+                  ? error.message
+                  : tCommon("states.error"),
+              ),
+          },
+        );
+      },
+      "plain-text",
+      member.role,
+    );
+  };
 
   const openMemberActions = (member: SquadMember) => {
     if (!canWrite || !squad) return;
@@ -226,143 +249,187 @@ export default function SquadDetailScreen() {
     );
   };
 
-  const headerRight = () => {
-    if (!canWrite || !squad || !wsSlug) return null;
-    return (
-      <View className="flex-row items-center">
-        <IconButton
-          name="pencil"
-          onPress={() =>
-            router.push({
-              pathname: "/[workspace]/squad/[id]/edit",
-              params: { workspace: wsSlug, id },
-            })
-          }
-          accessibilityLabel={t("detail.edit")}
-        />
-        <IconButton
-          name="ellipsis-horizontal"
-          onPress={() => setArchiveOpen(true)}
-          accessibilityLabel={t("detail.menu_aria")}
-        />
-      </View>
-    );
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else if (wsSlug) {
+      router.replace(`/${wsSlug}/agents`);
+    }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
+    <View className="flex-1 bg-background">
       <Stack.Screen
         options={{
-          title: squad?.name || t("navigation:routes.squad"),
-          headerBackTitle: tCommon("actions.back"),
-          headerRight,
+          headerShown: false,
+          gestureEnabled: true,
         }}
       />
+      <SquadDetailHeader
+        title={squad?.name || t("navigation:routes.squad")}
+        onBack={goBack}
+        onEdit={
+          canWrite && wsSlug
+            ? () =>
+                router.push({
+                  pathname: "/[workspace]/squad/[id]/edit",
+                  params: { workspace: wsSlug, id },
+                })
+            : undefined
+        }
+        onMenu={canWrite ? () => setArchiveOpen(true) : undefined}
+      />
 
-      {detail.isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
-        </View>
-      ) : detail.error || !squad ? (
-        <View className="flex-1 items-center justify-center gap-3 px-6">
-          <Text className="text-center text-sm text-destructive">
-            {detail.error
-              ? t("detail.load_failed")
-              : t("detail.not_found_description")}
-          </Text>
-          <Button variant="outline" onPress={() => detail.refetch()}>
-            <Text>{tCommon("actions.retry")}</Text>
-          </Button>
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerClassName="pb-12"
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          <View className="flex-row items-start gap-3 px-4 pt-4">
-            <SquadAvatar squad={squad} size="lg" />
-            <View className="min-w-0 flex-1">
+      <SafeAreaView edges={["bottom"]} className="flex-1">
+        {detail.isLoading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator />
+          </View>
+        ) : detail.error || !squad ? (
+          <View className="flex-1 items-center justify-center gap-3 px-6">
+            <Text className="text-center text-[15px] text-destructive">
+              {detail.error
+                ? t("detail.load_failed")
+                : t("detail.not_found_description")}
+            </Text>
+            <Button variant="outline" onPress={() => detail.refetch()}>
+              <Text>{tCommon("actions.retry")}</Text>
+            </Button>
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerClassName="pb-12"
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            <View className="px-4 pt-4">
               <View className="flex-row items-center gap-2">
-                <Text className="shrink text-xl font-semibold text-foreground">
-                  {squad.name}
-                </Text>
+                <SquadAvatar squad={squad} size="lg" />
                 {squad.archived_at ? (
                   <View className="rounded-full bg-muted px-2 py-0.5">
-                    <Text className="text-[10px] text-muted-foreground">
+                    <Text className="text-[11px] text-muted-foreground">
                       {t("list.archived")}
                     </Text>
                   </View>
                 ) : null}
               </View>
               {squad.description ? (
-                <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                <Text
+                  className="mt-3 text-[15px] leading-5 text-muted-foreground"
+                  numberOfLines={3}
+                >
                   {squad.description}
                 </Text>
               ) : null}
+              {squad.archived_at ? (
+                <Text className="mt-3 text-[13px] text-muted-foreground">
+                  {t("detail.archived_notice")}
+                </Text>
+              ) : null}
             </View>
-          </View>
 
-          {squad.archived_at ? (
-            <Text className="mx-4 mt-3 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-              {t("detail.archived_notice")}
-            </Text>
-          ) : null}
-
-          <View className="mt-6 flex-row items-center justify-between px-4">
-            <Text className="text-base font-semibold text-foreground">
-              {t("detail.members")}
-              <Text className="text-sm font-normal text-muted-foreground">
-                {"  "}
-                {roster.data?.length ?? 0}
-              </Text>
-            </Text>
-            {canWrite ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={() => {
-                  if (!wsSlug) return;
-                  router.push({
-                    pathname: "/[workspace]/squad/[id]/add-member",
-                    params: { workspace: wsSlug, id },
-                  });
-                }}
-              >
-                <Text className="text-brand">+ {t("detail.add_member")}</Text>
-              </Button>
-            ) : null}
-          </View>
-
-          <View className="mt-2 border-t border-border">
-            {roster.isLoading && !roster.data ? (
-              <View className="items-center py-8">
-                <ActivityIndicator />
+            <View className="mt-6 flex-row items-center justify-between px-4">
+              <View className="flex-row items-baseline gap-1.5">
+                <Text className="text-[17px] font-semibold text-foreground">
+                  {t("detail.members")}
+                </Text>
+                <Text className="text-[13px] text-muted-foreground">
+                  {roster.data?.length ?? 0}
+                </Text>
               </View>
-            ) : (roster.data ?? []).length === 0 ? (
-              <Text className="px-4 py-8 text-center text-sm text-muted-foreground">
-                {t("detail.no_members")}
-              </Text>
-            ) : (
-              (roster.data ?? []).map((member) => (
-                <SquadMemberRow
-                  key={member.id}
-                  member={member}
-                  name={memberName(member)}
-                  isLeader={member.member_id === squad.leader_id}
-                  canManage={canWrite}
-                  status={statusById.get(member.member_id)}
-                  onMenu={() => openMemberActions(member)}
-                  squadId={id}
-                />
-              ))
-            )}
-          </View>
-        </ScrollView>
-      )}
+              {canWrite ? (
+                <Pressable
+                  onPress={() => {
+                    if (!wsSlug) return;
+                    router.push({
+                      pathname: "/[workspace]/squad/[id]/add-member",
+                      params: { workspace: wsSlug, id },
+                    });
+                  }}
+                  accessibilityRole="button"
+                  className="h-11 justify-center active:opacity-60"
+                >
+                  <Text className="text-[13px] font-medium text-brand">
+                    + {t("detail.add_member")}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View className="mt-1">
+              <View className="ml-4 h-px bg-border" />
+              {roster.isLoading && !roster.data ? (
+                <View className="items-center py-8">
+                  <ActivityIndicator />
+                </View>
+              ) : (roster.data ?? []).length === 0 ? (
+                <Text className="px-4 py-8 text-center text-[15px] text-muted-foreground">
+                  {t("detail.no_members")}
+                </Text>
+              ) : (
+                (roster.data ?? []).map((member, index, all) => {
+                  const isLeader = member.member_id === squad.leader_id;
+                  const memberStatus = statusById.get(member.member_id);
+                  const issue = memberStatus?.active_issues?.[0];
+                  return (
+                    <View key={member.id}>
+                      <SquadMemberRow
+                        member={member}
+                        name={memberName(member)}
+                        isLeader={isLeader}
+                        roleLabel={squadMemberRoleLabel(
+                          isLeader,
+                          member.role,
+                          t("detail.role_leader"),
+                          canWrite ? t("detail.role_placeholder") : "",
+                        )}
+                        status={memberStatus?.status}
+                        canManage={canWrite}
+                        onMenu={
+                          canWrite && !isLeader
+                            ? () => openMemberActions(member)
+                            : undefined
+                        }
+                        onPressRole={
+                          canWrite ? () => promptRole(member) : undefined
+                        }
+                        activeIssue={
+                          issue
+                            ? {
+                                identifier: issue.identifier,
+                                title: issue.title,
+                                extra:
+                                  (memberStatus?.active_issues.length ?? 1) - 1,
+                              }
+                            : null
+                        }
+                        onPressIssue={
+                          issue && wsSlug
+                            ? () =>
+                                router.push({
+                                  pathname: "/[workspace]/issue/[id]",
+                                  params: {
+                                    workspace: wsSlug,
+                                    id: issue.issue_id,
+                                  },
+                                })
+                            : undefined
+                        }
+                      />
+                      {index < all.length - 1 ? (
+                        <View className="ml-4 h-px bg-border" />
+                      ) : null}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </SafeAreaView>
 
       {squad && archiveOpen ? (
         <ArchiveSquadModal
@@ -387,134 +454,80 @@ export default function SquadDetailScreen() {
           }}
         />
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 
-function SquadMemberRow({
-  member,
-  name,
-  isLeader,
-  canManage,
-  status,
+/**
+ * Plain toolbar. iOS 26 wraps native bar-button groups in a shared glass
+ * capsule; drawing the row here keeps the back chevron and the two actions
+ * independent while the stack still owns the swipe-back gesture.
+ */
+function SquadDetailHeader({
+  title,
+  onBack,
+  onEdit,
   onMenu,
-  squadId,
 }: {
-  member: SquadMember;
-  name: string;
-  isLeader: boolean;
-  canManage: boolean;
-  status: SquadMemberStatus | undefined;
-  onMenu: () => void;
-  squadId: string;
+  title: string;
+  onBack: () => void;
+  onEdit?: () => void;
+  onMenu?: () => void;
 }) {
-  const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const { t } = useT("squads");
-  const updateRole = useUpdateSquadMemberRole(squadId);
-
-  const statusValue = memberStatusValue(status);
-  const activeIssues = status?.active_issues ?? [];
-  const issue = activeIssues[0];
-  const extra = activeIssues.length - 1;
-
-  const saveRole = (value: string) => {
-    const next = value.trim();
-    if (next === member.role.trim()) return;
-    updateRole.mutate(
-      {
-        member_type: member.member_type,
-        member_id: member.member_id,
-        role: next,
-      },
-      {
-        onError: (error) =>
-          Alert.alert(
-            t("detail.members"),
-            error instanceof Error ? error.message : t("common:states.error"),
-          ),
-      },
-    );
-  };
+  const { t: tCommon } = useT("common");
+  const { colorScheme } = useColorScheme();
+  const theme = THEME[colorScheme];
+  const hasActions = !!onEdit && !!onMenu;
 
   return (
-    <View className="px-4 py-3">
-      <View className="flex-row items-start gap-3">
-        <ActorAvatar
-          type={member.member_type}
-          id={member.member_id}
-          size={36}
-          showPresence={member.member_type === "agent"}
-        />
-        <View className="min-w-0 flex-1">
-          <View className="flex-row items-center gap-1.5">
-            <Text
-              className="shrink text-base font-medium text-foreground"
-              numberOfLines={1}
-            >
-              {name}
-            </Text>
-            {isLeader ? <Text className="text-xs">👑</Text> : null}
-            <View className="rounded-full bg-secondary px-1.5 py-0.5">
-              <Text className="text-[10px] text-secondary-foreground">
-                {member.member_type === "agent"
-                  ? t("detail.type_agent")
-                  : t("detail.type_member")}
-              </Text>
-            </View>
-            {statusValue ? (
-              <SquadStatusPill status={statusValue} className="ml-auto" />
-            ) : null}
-          </View>
-
-          {canManage ? (
-            <TextField
-              key={`role-${member.id}-${member.role}`}
-              defaultValue={member.role}
-              onEndEditing={(event) => saveRole(event.nativeEvent.text)}
-              placeholder={t("detail.role_placeholder")}
-              returnKeyType="done"
-              maxLength={80}
-              className="mt-1.5 h-8 bg-transparent px-2 text-sm"
-            />
-          ) : member.role ? (
-            <Text className="mt-0.5 text-xs text-muted-foreground">
-              {member.role}
-            </Text>
-          ) : null}
-
-          {issue ? (
-            <Pressable
-              onPress={() => {
-                if (!wsSlug) return;
-                router.push({
-                  pathname: "/[workspace]/issue/[id]",
-                  params: { workspace: wsSlug, id: issue.issue_id },
-                });
-              }}
-              className="mt-1 flex-row items-center gap-1 active:opacity-60"
-            >
-              <Text className="text-xs text-brand" numberOfLines={1}>
-                {t("detail.working_on")} · {issue.identifier} {issue.title}
-              </Text>
-              {extra > 0 ? (
-                <Text className="text-xs text-muted-foreground">
-                  {t("detail.and_more", { count: extra })}
-                </Text>
-              ) : null}
-            </Pressable>
-          ) : null}
+    <SafeAreaView
+      edges={["top"]}
+      className="border-b border-border bg-background"
+    >
+      <View className="relative h-11 justify-center">
+        <Text
+          className="mx-[88px] text-center text-[17px] font-semibold text-foreground"
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
+        <View
+          className="flex-row items-center"
+          style={{ position: "absolute", left: 0, top: 0, bottom: 0 }}
+        >
+          <Pressable
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel={tCommon("actions.back")}
+            className="h-11 w-11 items-center justify-center active:opacity-60"
+          >
+            <Ionicons name="chevron-back" size={26} color={theme.foreground} />
+          </Pressable>
         </View>
-
-        {canManage && !isLeader ? (
-          <IconButton
-            name="ellipsis-horizontal"
-            iconSize={18}
-            onPress={onMenu}
-            accessibilityLabel={t("detail.member_menu", { name })}
-          />
+        {hasActions ? (
+          <View
+            className="flex-row items-center"
+            style={{ position: "absolute", right: 0, top: 0, bottom: 0 }}
+          >
+            <IconButton
+              name="pencil"
+              iconSize={20}
+              onPress={onEdit}
+              className="h-11 w-11"
+              accessibilityLabel={t("detail.edit")}
+            />
+            <IconButton
+              name="ellipsis-horizontal"
+              iconSize={20}
+              onPress={onMenu}
+              className="h-11 w-11"
+              accessibilityLabel={t("detail.menu_aria")}
+            />
+          </View>
         ) : null}
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -550,10 +563,10 @@ function ArchiveSquadModal({
         className="flex-1 items-center justify-center bg-black/40 px-6"
       >
         <View className="w-full gap-3 rounded-2xl bg-background p-5">
-          <Text className="text-lg font-semibold text-foreground">
+          <Text className="text-[17px] font-semibold text-foreground">
             {t("detail.archive_title")}
           </Text>
-          <Text className="text-sm leading-5 text-muted-foreground">
+          <Text className="text-[15px] leading-5 text-muted-foreground">
             {t("detail.archive_message")}
           </Text>
           <TextField

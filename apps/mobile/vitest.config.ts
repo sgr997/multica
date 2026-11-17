@@ -34,6 +34,8 @@ export default defineConfig({
       "components/issue/**/*.test.ts",
       "components/inbox/inbox-row.test.tsx",
       "components/inbox/inbox-screen.test.ts",
+      "components/squads/**/*.test.ts",
+      "components/squads/**/*.test.tsx",
     ],
     passWithNoTests: true,
   },

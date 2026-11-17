@@ -1,10 +1,16 @@
 /**
  * Squad list body embedded in the Agents tab's "Squads" segment.
  *
+ * The Agents/Squads segment is the only full-width control; scope (all vs
+ * mine) is a secondary text filter with its count outside the label, so the
+ * two levels never read as twin segmented controls. Search is a 36pt iOS
+ * field with a leading glyph and never auto-focuses.
+ *
  * Parity with web's Squads page, adapted to one phone column:
  *   - name search is local (the API returns the workspace list in one call);
- *   - scope is All / My squads, with "mine" driven by `/api/squads/involved`
- *     (membership-based) rather than the creator — the issue's requirement;
+ *   - scope is All / My squads, with "mine" driven by squad membership
+ *     (member, owned leader agent, or owned member agent) rather than the
+ *     creator — the issue's requirement;
  *   - rows show the squad identity, member count, leader with a crown, and a
  *     leader-presence summary (working / idle / offline / unstable).
  */
@@ -14,29 +20,28 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  TextInput,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import SegmentedControl from "@react-native-segmented-control/segmented-control";
 import type { Squad } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { TextField } from "@/components/ui/text-field";
-import {
-  SquadAvatarStack,
-  SquadStatusPill,
-} from "@/components/squads/squad-avatar";
+import { SquadRow } from "@/components/squads/squad-row";
 import {
   involvedSquadIdsOptions,
   squadListOptions,
 } from "@/data/queries/squads";
 import { agentListOptions } from "@/data/queries/agents";
+import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useWorkspacePresenceMap } from "@/lib/use-agent-presence";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
+import { MOBILE_PLACEHOLDER_COLOR } from "@/components/ui/input-tokens";
 import {
   filterSquads,
   summarizeSquadStatus,
@@ -49,6 +54,7 @@ const SCOPES: SquadScope[] = ["all", "mine"];
 export function SquadsListBody() {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
+  const userId = useAuthStore((s) => s.user?.id ?? null);
   const { t } = useT("squads");
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme];
@@ -57,16 +63,38 @@ export function SquadsListBody() {
   const [scope, setScope] = useState<SquadScope>("all");
 
   const list = useQuery(squadListOptions(wsId));
-  const involved = useQuery(involvedSquadIdsOptions(wsId));
-  const { data: agents = [] } = useQuery(
+  const squads = useMemo(() => list.data ?? [], [list.data]);
+  const agentsQuery = useQuery(
     agentListOptions(wsId, { includeArchived: true }),
+  );
+  const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
+  const ownedAgentIds = useMemo(
+    () =>
+      new Set(
+        agents
+          .filter((agent) => agent.owner_id === userId)
+          .map((agent) => agent.id),
+      ),
+    [agents, userId],
+  );
+  const involved = useQuery(
+    involvedSquadIdsOptions(
+      wsId,
+      squads,
+      userId,
+      ownedAgentIds,
+      agentsQuery.isFetched,
+    ),
   );
   const { byAgent: presenceByAgent } = useWorkspacePresenceMap(wsId);
   const { refreshing, onRefresh } = useRefreshWithHaptics(async () => {
-    await Promise.all([list.refetch(), involved.refetch()]);
+    await Promise.all([
+      list.refetch(),
+      agentsQuery.refetch(),
+      involved.refetch(),
+    ]);
   });
 
-  const squads = useMemo(() => list.data ?? [], [list.data]);
   const involvedIds = useMemo(
     () => new Set(involved.data ?? []),
     [involved.data],
@@ -106,6 +134,15 @@ export function SquadsListBody() {
     all: squads.length,
     mine: squads.filter((squad) => involvedIds.has(squad.id)).length,
   };
+  const scopeLabels: Record<SquadScope, string> = {
+    all: t("list.scope_all_short"),
+    mine: t("list.scope_mine_short"),
+  };
+
+  const clearFilters = () => {
+    setQuery("");
+    setScope("all");
+  };
 
   return (
     <FlatList
@@ -118,39 +155,19 @@ export function SquadsListBody() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
       ListHeaderComponent={
-        <View className="gap-3 px-4 pb-2 pt-3">
-          <TextField
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t("list.search_placeholder")}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-          <SegmentedControl
-            values={SCOPES.map(
-              (value) =>
-                `${value === "all" ? t("list.scope_all") : t("list.scope_mine")} ${scopeCounts[value]}`,
-            )}
-            selectedIndex={SCOPES.indexOf(scope)}
-            onChange={(event) => {
-              const next = SCOPES[event.nativeEvent.selectedSegmentIndex];
-              if (next) setScope(next);
-            }}
-            backgroundColor={theme.secondary}
-            tintColor={theme.background}
-            fontStyle={{ color: theme.mutedForeground, fontSize: 13 }}
-            activeFontStyle={{ color: theme.foreground, fontSize: 13, fontWeight: "600" }}
-          />
-          <Pressable
-            onPress={createSquad}
-            className="flex-row items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2.5 active:bg-secondary"
-          >
-            <Text className="text-sm font-medium text-brand">
-              + {t("list.new_squad")}
-            </Text>
-          </Pressable>
+        <View className="gap-2 px-4 pb-2 pt-3">
+          <SquadSearchField value={query} onChangeText={setQuery} />
+          <View className="flex-row items-center gap-1">
+            {SCOPES.map((value) => (
+              <ScopeChip
+                key={value}
+                label={scopeLabels[value]}
+                count={scopeCounts[value]}
+                selected={scope === value}
+                onPress={() => setScope(value)}
+              />
+            ))}
+          </View>
         </View>
       }
       ListEmptyComponent={
@@ -160,12 +177,10 @@ export function SquadsListBody() {
           </View>
         ) : list.error && squads.length === 0 ? (
           <View className="gap-3 px-4 pt-8">
-            <Text className="text-sm text-destructive">
+            <Text className="text-[15px] text-destructive">
               {t("list.load_failed", {
                 message:
-                  list.error instanceof Error
-                    ? list.error.message
-                    : "unknown",
+                  list.error instanceof Error ? list.error.message : "unknown",
               })}
             </Text>
             <Button variant="outline" onPress={() => list.refetch()}>
@@ -173,58 +188,129 @@ export function SquadsListBody() {
             </Button>
           </View>
         ) : (
-          <View className="items-center px-6 py-16">
-            <Text className="text-center text-sm text-muted-foreground">
+          <View className="items-center px-6 pt-16">
+            <Ionicons
+              name={squads.length === 0 ? "people-outline" : "search-outline"}
+              size={32}
+              color={theme.mutedForeground}
+            />
+            <Text className="mt-3 text-center text-[15px] text-muted-foreground">
               {squads.length === 0
                 ? t("list.empty")
                 : t("list.empty_filtered")}
             </Text>
+            <Button
+              className="mt-4"
+              onPress={squads.length === 0 ? createSquad : clearFilters}
+            >
+              <Text>
+                {squads.length === 0
+                  ? t("list.new_squad")
+                  : t("list.clear_filters")}
+              </Text>
+            </Button>
           </View>
         )
       }
+      ItemSeparatorComponent={() => <View className="ml-4 h-px bg-border" />}
       renderItem={({ item }) => {
         const leader = agentsById.get(item.leader_id);
         const status = item.archived_at
           ? "archived"
           : summarizeSquadStatus(presenceByAgent.get(item.leader_id));
-        const memberCount = item.member_count ?? 0;
         return (
-          <Pressable
+          <SquadRow
+            squad={item}
+            leaderName={leader?.name ?? null}
+            status={status}
             onPress={() => openSquad(item)}
-            className="flex-row items-center gap-3 px-4 py-3 active:bg-secondary"
-          >
-            <SquadAvatarStack squad={item} size={32} />
-            <View className="min-w-0 flex-1">
-              <View className="flex-row items-center gap-1.5">
-                <Text
-                  className="shrink text-base font-medium text-foreground"
-                  numberOfLines={1}
-                >
-                  {item.name}
-                </Text>
-                {item.archived_at ? (
-                  <View className="rounded-full bg-muted px-1.5 py-0.5">
-                    <Text className="text-[10px] text-muted-foreground">
-                      {t("list.archived")}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text className="mt-0.5 text-xs text-muted-foreground" numberOfLines={1}>
-                {t("list.member_count", { count: memberCount })}
-                {" · "}
-                {leader
-                  ? `👑 ${leader.name}`
-                  : t("list.no_leader")}
-              </Text>
-            </View>
-            <SquadStatusPill status={status} />
-          </Pressable>
+          />
         );
       }}
-      ItemSeparatorComponent={() => (
-        <View className="ml-[68px] h-px bg-border" />
-      )}
     />
+  );
+}
+
+function SquadSearchField({
+  value,
+  onChangeText,
+}: {
+  value: string;
+  onChangeText: (value: string) => void;
+}) {
+  const { t } = useT("squads");
+  const { colorScheme } = useColorScheme();
+  const theme = THEME[colorScheme];
+
+  return (
+    <View className="h-9 flex-row items-center gap-2 rounded-[10px] bg-secondary px-3">
+      <Ionicons name="search" size={16} color={theme.mutedForeground} />
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={t("list.search_placeholder")}
+        placeholderTextColor={MOBILE_PLACEHOLDER_COLOR}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        style={{
+          flex: 1,
+          fontSize: 15,
+          color: theme.foreground,
+          includeFontPadding: false,
+          textAlignVertical: "center",
+        }}
+      />
+      {value ? (
+        <Pressable
+          hitSlop={8}
+          onPress={() => onChangeText("")}
+          accessibilityRole="button"
+          accessibilityLabel={t("common:actions.cancel")}
+        >
+          <Ionicons
+            name="close-circle"
+            size={16}
+            color={theme.mutedForeground}
+          />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+function ScopeChip({
+  label,
+  count,
+  selected,
+  onPress,
+}: {
+  label: string;
+  count: number;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      className={
+        selected
+          ? "flex-row items-center gap-1 rounded-full bg-secondary px-2.5 py-1"
+          : "flex-row items-center gap-1 rounded-full px-2.5 py-1 active:bg-secondary"
+      }
+    >
+      <Text
+        className={
+          selected
+            ? "text-[13px] font-semibold text-foreground"
+            : "text-[13px] text-muted-foreground"
+        }
+      >
+        {label}
+      </Text>
+      <Text className="text-[11px] text-muted-foreground">{count}</Text>
+    </Pressable>
   );
 }

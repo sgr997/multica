@@ -1,17 +1,20 @@
 /**
  * Squad identity marks.
  *
- * `SquadAvatar` renders the uploaded avatar, an emoji avatar, or the name's
- * initials in a soft square (matching ActorAvatar's squad tile shape).
+ * `SquadAvatar` renders the uploaded avatar, an emoji avatar, or a single
+ * character from the name in a soft square. Detail headers are 56pt, so the
+ * fallback must stay on one line — taking two initials from a name like
+ * "Multica 维护" used to wrap into "M / 维".
+ *
  * `SquadAvatarStack` prefers the list payload's member_preview so a squad
- * reads as a group at a glance, and falls back to the squad tile when the
- * backend predates member previews.
+ * reads as a group at a glance. It caps at two 32pt avatars plus a `+N`
+ * circle, and lays them out with absolute offsets instead of negative
+ * margins so row edges are never clipped.
  */
 import { Image, View } from "react-native";
 import type { Squad } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
-import { AvatarStack } from "@/components/ui/avatar-stack";
-import { getInitials } from "@/data/use-actor-name";
+import { ActorAvatar } from "@/components/ui/actor-avatar";
 import { cn } from "@/lib/utils";
 import type { SquadStatusSummary } from "@/lib/squads";
 import { useT } from "@/lib/i18n";
@@ -22,6 +25,35 @@ const SIZES = {
   lg: 56,
 } as const;
 
+const INITIAL_FONT_SIZE: Record<keyof typeof SIZES, number> = {
+  sm: 13,
+  md: 16,
+  lg: 22,
+};
+
+const RADIUS: Record<keyof typeof SIZES, number> = {
+  sm: 10,
+  md: 10,
+  lg: 16,
+};
+
+/**
+ * One-character fallback: Latin names keep the first letter upper-cased,
+ * CJK names keep the first character. Emoji-only names pass through.
+ */
+export function squadInitial(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "?";
+  const first = Array.from(trimmed)[0] ?? "?";
+  const code = first.codePointAt(0) ?? 0;
+  const isCjk =
+    (code >= 0x3040 && code <= 0x30ff) ||
+    (code >= 0x3400 && code <= 0x9fff) ||
+    (code >= 0xac00 && code <= 0xd7af) ||
+    (code >= 0xf900 && code <= 0xfaff);
+  return isCjk ? first : first.toLocaleUpperCase();
+}
+
 export function SquadAvatar({
   squad,
   size = "md",
@@ -30,7 +62,7 @@ export function SquadAvatar({
   size?: keyof typeof SIZES;
 }) {
   const px = SIZES[size];
-  const radius = Math.round(px * 0.28);
+  const radius = RADIUS[size];
   const raw = squad.avatar_url;
   const emoji = raw?.startsWith("emoji:")
     ? raw.slice("emoji:".length).trim()
@@ -68,13 +100,35 @@ export function SquadAvatar({
       style={{ width: px, height: px, borderRadius: radius }}
     >
       <Text
+        numberOfLines={1}
         className="font-semibold text-secondary-foreground"
-        style={{ fontSize: Math.round(px * 0.36) }}
+        style={{ fontSize: INITIAL_FONT_SIZE[size], lineHeight: px }}
       >
-        {getInitials(squad.name)}
+        {squadInitial(squad.name)}
       </Text>
     </View>
   );
+}
+
+const STACK_MAX = 2;
+const STACK_OVERLAP = 8;
+const STACK_RING = 4;
+
+interface PreviewMember {
+  member_type: string;
+  member_id: string;
+}
+
+function dedupePreview(preview: readonly PreviewMember[]): PreviewMember[] {
+  const seen = new Set<string>();
+  const out: PreviewMember[] = [];
+  for (const member of preview) {
+    const key = `${member.member_type}:${member.member_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(member);
+  }
+  return out;
 }
 
 export function SquadAvatarStack({
@@ -84,53 +138,94 @@ export function SquadAvatarStack({
   squad: Squad;
   size?: number;
 }) {
-  const preview = squad.member_preview ?? [];
+  const preview = dedupePreview(squad.member_preview ?? []);
   if (preview.length === 0) {
     return <SquadAvatar squad={squad} size="sm" />;
   }
+
+  const visible = preview.slice(0, STACK_MAX);
+  const overflow = preview.length - visible.length;
+  const step = size - STACK_OVERLAP;
+  const count = visible.length + (overflow > 0 ? 1 : 0);
+  const ring = size + STACK_RING;
+  const width = (count - 1) * step + ring;
+
   return (
-    <AvatarStack
-      actors={preview.map((member) => ({
-        type: member.member_type === "member" ? "member" : "agent",
-        id: member.member_id,
-      }))}
-      size={size}
-    />
+    <View style={{ width, height: ring }} className="flex-row">
+      {visible.map((member, index) => (
+        <View
+          key={`${member.member_type}:${member.member_id}`}
+          className="absolute items-center justify-center rounded-full bg-background"
+          style={{
+            left: index * step,
+            top: 0,
+            width: ring,
+            height: ring,
+          }}
+        >
+          <ActorAvatar
+            type={member.member_type === "member" ? "member" : "agent"}
+            id={member.member_id}
+            size={size}
+          />
+        </View>
+      ))}
+      {overflow > 0 ? (
+        <View
+          className="absolute items-center justify-center rounded-full bg-muted"
+          style={{
+            left: visible.length * step,
+            top: 0,
+            width: ring,
+            height: ring,
+          }}
+        >
+          <Text className="text-[11px] font-medium text-muted-foreground">
+            +{overflow}
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
-export function SquadStatusPill({
+export type SquadStatusValue = SquadStatusSummary | "archived";
+
+const STATUS_DOT_CLASS: Record<SquadStatusValue, string> = {
+  working: "bg-success",
+  idle: "bg-info",
+  unstable: "bg-warning",
+  offline: "bg-muted-foreground/40",
+  archived: "bg-muted-foreground/40",
+};
+
+export function squadStatusDotClass(status: SquadStatusValue): string {
+  return STATUS_DOT_CLASS[status];
+}
+
+/**
+ * Neutral status marker: a small colored dot plus 12pt muted text. Replaces
+ * the tinted pill so the row's right edge reads as one quiet column.
+ */
+export function SquadStatusLabel({
   status,
+  label,
   className,
 }: {
-  status: SquadStatusSummary | "archived" | null | undefined;
+  status: SquadStatusValue | null | undefined;
+  /** Pre-resolved label; defaults to the localized status string. */
+  label?: string | null;
   className?: string;
 }) {
   const { t } = useT("squads");
   if (!status) return null;
-  const label = t(`status.${status}`);
   return (
-    <View
-      className={cn(
-        "shrink-0 rounded-full px-1.5 py-0.5",
-        status === "working" && "bg-emerald-500/15",
-        status === "idle" && "bg-sky-500/15",
-        status === "unstable" && "bg-amber-500/15",
-        (status === "offline" || status === "archived") && "bg-muted",
-        className,
-      )}
-    >
-      <Text
-        className={cn(
-          "text-[10px] font-medium",
-          status === "working" && "text-emerald-700 dark:text-emerald-400",
-          status === "idle" && "text-sky-700 dark:text-sky-400",
-          status === "unstable" && "text-amber-700 dark:text-amber-400",
-          (status === "offline" || status === "archived") &&
-            "text-muted-foreground",
-        )}
-      >
-        {label}
+    <View className={cn("shrink-0 flex-row items-center gap-1.5", className)}>
+      <View
+        className={cn("size-1.5 rounded-full", squadStatusDotClass(status))}
+      />
+      <Text className="text-[12px] text-muted-foreground">
+        {label ?? t(`status.${status}`)}
       </Text>
     </View>
   );
