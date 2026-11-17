@@ -323,18 +323,6 @@ export default function WorkspaceLayout() {
             title: t("navigation:routes.assignee"),
           }}
         />
-        <Stack.Screen
-          name="batch-picker/project"
-          options={{
-            ...SHEET_OPTIONS,
-            headerShown: true,
-            title: t("navigation:routes.project"),
-          }}
-        />
-        <Stack.Screen
-          name="batch-picker/due-date"
-          options={SHEET_OPTIONS}
-        />
         {/* Chat session-switch sheet. */}
         <Stack.Screen name="chat-sessions" options={SHEET_OPTIONS} />
         {/* Workspace switcher — reached from the More popover's collapsed

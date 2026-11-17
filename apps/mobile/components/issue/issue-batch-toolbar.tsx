@@ -34,16 +34,12 @@ const EMPTY_IDS: string[] = [];
 type BatchPickerAction =
   | "status"
   | "priority"
-  | "assignee"
-  | "project"
-  | "due-date";
+  | "assignee";
 
 const PICKER_PATH: Record<BatchPickerAction, `/[workspace]/batch-picker/${string}`> = {
   status: "/[workspace]/batch-picker/status",
   priority: "/[workspace]/batch-picker/priority",
   assignee: "/[workspace]/batch-picker/assignee",
-  project: "/[workspace]/batch-picker/project",
-  "due-date": "/[workspace]/batch-picker/due-date",
 };
 
 export function IssueBatchToolbar({
@@ -247,20 +243,6 @@ function IssueBatchToolbarContent({
             label={t("batch.assignee")}
             disabled={pending}
             onPress={() => openPicker("assignee")}
-            tint={tint}
-          />
-          <BatchAction
-            icon="briefcase-outline"
-            label={t("batch.project")}
-            disabled={pending}
-            onPress={() => openPicker("project")}
-            tint={tint}
-          />
-          <BatchAction
-            icon="calendar-outline"
-            label={t("batch.due_date")}
-            disabled={pending}
-            onPress={() => openPicker("due-date")}
             tint={tint}
           />
           <BatchAction

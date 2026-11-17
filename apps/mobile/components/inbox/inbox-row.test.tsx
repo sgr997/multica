@@ -70,8 +70,10 @@ function item(overrides: Partial<InboxItem> = {}): InboxItem {
   };
 }
 
-function render(row: InboxItem) {
-  return flatten(InboxRow({ item: row, onPress: () => {} }));
+function render(row: InboxItem, unreadCount = 0) {
+  return flatten(
+    InboxRow({ item: row, unreadCount, onPress: () => {} }),
+  );
 }
 
 function unreadDots(elements: Element[]) {
@@ -87,7 +89,7 @@ function unreadDots(elements: Element[]) {
 
 describe("InboxRow unread marker", () => {
   it("renders an 8px dot instead of a numeric badge when unread", () => {
-    const elements = render(item({ read: false }));
+    const elements = render(item({ read: false }), 3);
 
     expect(unreadDots(elements)).toHaveLength(1);
     const numeric = elements.filter(
@@ -107,17 +109,17 @@ describe("InboxRow unread marker", () => {
   });
 
   it("renders no marker on a read row", () => {
-    expect(unreadDots(render(item({ read: true })))).toEqual([]);
+    expect(unreadDots(render(item({ read: true }), 0))).toEqual([]);
   });
 
-  it("keeps the unread state readable for assistive tech", () => {
-    const unreadTitle = render(item({ read: false })).find(
+  it("keeps the unread count readable for assistive tech", () => {
+    const unreadTitle = render(item({ read: false }), 3).find(
       (element) =>
         element.type === "Text" &&
         element.props.accessibilityLabel !== undefined,
     );
     expect(unreadTitle?.props.accessibilityLabel).toBe(
-      `${item().title}, filters.unread`,
+      `${item().title}, row.unread_count`,
     );
 
     const readTitle = render(item({ read: true })).find(

@@ -294,8 +294,6 @@
     "status": "状态",
     "priority": "优先级",
     "assignee": "负责人",
-    "project": "项目",
-    "due_date": "截止日期",
     "copy_links": "复制链接",
     "delete": "删除",
     "applying": "正在应用…",
@@ -312,10 +310,7 @@
     "copy_failed": "复制链接失败",
     "run_confirm_title_other": "指派 {{count}} 个任务？",
     "run_confirm_desc_other": "所选任务并非都在 Backlog。指派智能体或小队会派发运行。",
-    "run_confirm": "指派并开始",
-    "project_move_title_other": "移动 {{count}} 个任务？",
-    "project_move_desc_other": "所选任务都会移动到 {{project}}。",
-    "project_move_confirm": "移动"
+    "run_confirm": "指派并开始"
   },
   "header_filter": "筛选",
   "new_badge": "新",

@@ -298,8 +298,6 @@
     "status": "Status",
     "priority": "Priority",
     "assignee": "Assignee",
-    "project": "Project",
-    "due_date": "Due date",
     "copy_links": "Copy links",
     "delete": "Delete",
     "applying": "Applying…",
@@ -325,12 +323,7 @@
     "run_confirm_title_other": "Assign {{count}} issues?",
     "run_confirm_desc_one": "The selected issue isn't in Backlog. Assigning an agent or squad starts a run.",
     "run_confirm_desc_other": "The selected issues aren't all in Backlog. Assigning an agent or squad starts runs.",
-    "run_confirm": "Assign and start",
-    "project_move_title_one": "Move {{count}} issue?",
-    "project_move_title_other": "Move {{count}} issues?",
-    "project_move_desc_one": "The selected issue will be moved to {{project}}.",
-    "project_move_desc_other": "All selected issues will be moved to {{project}}.",
-    "project_move_confirm": "Move"
+    "run_confirm": "Assign and start"
   },
   "header_filter": "Filter",
   "new_badge": "New",

@@ -294,8 +294,6 @@
     "status": "狀態",
     "priority": "優先順序",
     "assignee": "負責人",
-    "project": "專案",
-    "due_date": "截止日期",
     "copy_links": "複製連結",
     "delete": "刪除",
     "applying": "正在套用…",
@@ -312,10 +310,7 @@
     "copy_failed": "複製連結失敗",
     "run_confirm_title_other": "指派 {{count}} 個任務？",
     "run_confirm_desc_other": "所選任務並非都在 Backlog。指派智慧體或小隊會派發執行。",
-    "run_confirm": "指派並開始",
-    "project_move_title_other": "移動 {{count}} 個任務？",
-    "project_move_desc_other": "所選任務都會移動到 {{project}}。",
-    "project_move_confirm": "移動"
+    "run_confirm": "指派並開始"
   },
   "header_filter": "篩選",
   "new_badge": "新",

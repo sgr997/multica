@@ -67,11 +67,3 @@ export function canDeleteIssueSelection(
   return issues.every((issue) => canDeleteIssue(issue, userId, role, agents));
 }
 
-/** True when the selection spans more than one project (including none). */
-export function selectionSpansProjects(
-  issues: readonly Pick<Issue, "project_id">[],
-): boolean {
-  if (issues.length <= 1) return false;
-  const first = issues[0]?.project_id ?? null;
-  return issues.some((issue) => (issue.project_id ?? null) !== first);
-}

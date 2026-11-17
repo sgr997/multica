@@ -6,7 +6,6 @@ import {
   canDeleteIssueSelection,
   retainVisibleSelection,
   selectAllVisible,
-  selectionSpansProjects,
   toggleSelection,
 } from "./issue-batch";
 
@@ -114,18 +113,4 @@ describe("batch assignment and deletion guards", () => {
     );
   });
 
-  it("detects a selection spanning projects", () => {
-    expect(
-      selectionSpansProjects([
-        issue("a", { project_id: "p-1" }),
-        issue("b", { project_id: "p-1" }),
-      ]),
-    ).toBe(false);
-    expect(
-      selectionSpansProjects([
-        issue("a", { project_id: "p-1" }),
-        issue("b", { project_id: null }),
-      ]),
-    ).toBe(true);
-  });
 });
