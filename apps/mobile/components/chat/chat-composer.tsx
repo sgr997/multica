@@ -50,6 +50,9 @@ interface Props {
   /** True while an agent task is running for the active session. The
    *  composer swaps Send for Stop. */
   sending: boolean;
+  /** Server accepts queued follow-ups for this session. While `sending`,
+   *  the composer keeps Send next to Stop instead of replacing it. */
+  allowSubmitWhileRunning?: boolean;
   /** Queued tasks remain busy, but do not expose Stop without draft restore. */
   allowStop?: boolean;
   /** Hard-disable typing + send. Used when there's no usable agent in the
@@ -67,6 +70,7 @@ export function ChatComposer({
   onSend,
   onStop,
   sending,
+  allowSubmitWhileRunning = false,
   allowStop = true,
   disabled = false,
   disabledReason,
@@ -105,7 +109,13 @@ export function ChatComposer({
         pathname: "/[workspace]/mention-picker",
         params: { workspace: wsSlug ?? "", mode: "chat" },
       }}
-      placeholder={sending ? t("composer.working") : t("composer.message")}
+      placeholder={
+        sending
+          ? allowSubmitWhileRunning
+            ? t("composer.queue_placeholder")
+            : t("composer.working")
+          : t("composer.message")
+      }
       pillLabel={
         sending
           ? t("composer.working")
@@ -117,6 +127,7 @@ export function ChatComposer({
       disabled={disabled}
       disabledReason={disabledReason}
       isSending={sending}
+      allowSubmitWhileRunning={allowSubmitWhileRunning}
       renderStop={allowStop ? () => <StopButton onPress={handleStop} /> : undefined}
       manageKeyboard={false}
     />

@@ -21,7 +21,21 @@
     "file_too_large_message": "檔案必須小於 100 MB。",
     "working": "AI 代理正在處理...",
     "message": "訊息...",
+    "queue_placeholder": "輸入訊息（可排隊或引導）...",
     "send_failed": "訊息未傳送"
+  },
+  "queue": {
+    "title_other": "{{count}} 則排隊訊息",
+    "clear": "全部清空",
+    "steer": "立即引導",
+    "steer_unavailable": "目前回覆開始後才能引導",
+    "steer_unavailable_toast": "目前輪次已無法引導",
+    "remove": "刪除排隊訊息",
+    "fallback": "排隊訊息",
+    "action_failed": "佇列操作失敗，請重試",
+    "mode_title": "AI 代理正在執行",
+    "mode_message": "現在傳送會進入佇列；也可以立即引導，打斷目前輪次。",
+    "mode_queue": "排隊傳送"
   },
   "empty": {
     "greeting": "你好，我是 {{name}}",

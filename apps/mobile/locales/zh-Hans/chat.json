@@ -21,7 +21,21 @@
     "file_too_large_message": "文件必须小于 100 MB。",
     "working": "智能体正在处理...",
     "message": "消息...",
+    "queue_placeholder": "输入消息（可排队或引导）...",
     "send_failed": "消息未发送"
+  },
+  "queue": {
+    "title_other": "{{count}} 条排队消息",
+    "clear": "全部清空",
+    "steer": "立即引导",
+    "steer_unavailable": "当前回复开始后才能引导",
+    "steer_unavailable_toast": "当前轮次已不可引导",
+    "remove": "删除排队消息",
+    "fallback": "排队消息",
+    "action_failed": "队列操作失败，请重试",
+    "mode_title": "智能体正在运行",
+    "mode_message": "现在发送会进入队列；也可以立即引导，打断当前轮次。",
+    "mode_queue": "排队发送"
   },
   "empty": {
     "greeting": "你好，我是 {{name}}",

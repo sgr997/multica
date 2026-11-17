@@ -39,6 +39,7 @@ import type {
   MemberWithUser,
   PinnedItem,
   PinnedItemType,
+  PrioritizeQueuedChatTaskResponse,
   Project,
   ProjectResource,
   Reaction,
@@ -111,6 +112,7 @@ import {
   EMPTY_NOTIFICATION_PREFERENCES,
   EMPTY_PIN_LIST,
   EMPTY_PROJECT,
+  EMPTY_PRIORITIZE_QUEUED_CHAT_TASK_RESPONSE,
   EMPTY_RUNTIME_LIST,
   EMPTY_SEARCH_ISSUES_RESPONSE,
   EMPTY_SEARCH_PROJECTS_RESPONSE,
@@ -126,6 +128,7 @@ import {
   MemberListSchema,
   PinListSchema,
   PinnedItemSchema,
+  PrioritizeQueuedChatTaskResponseSchema,
   ProjectSchema,
   RuntimeListSchema,
   SearchIssuesResponseSchema,
@@ -1313,8 +1316,45 @@ class ApiClient {
     );
   }
 
-  async cancelTaskById(taskId: string): Promise<void> {
-    await this.fetch<void>(`/api/tasks/${taskId}/cancel`, { method: "POST" });
+  async cancelTaskById(
+    taskId: string,
+    options?: { queuedAction?: "edit" | "remove"; sessionId?: string },
+  ): Promise<void> {
+    const params = new URLSearchParams();
+    if (options?.queuedAction) {
+      if (!options.sessionId) {
+        throw new Error("sessionId is required for queued-only cancellation");
+      }
+      params.set("expected_status", "queued");
+      params.set("chat_session_id", options.sessionId);
+      params.set("queue_action", options.queuedAction);
+    }
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    await this.fetch<void>(`/api/tasks/${taskId}/cancel${query}`, {
+      method: "POST",
+    });
+  }
+
+  async prioritizeQueuedChatTask(
+    sessionId: string,
+    taskId: string,
+  ): Promise<PrioritizeQueuedChatTaskResponse> {
+    const raw = await this.fetch<unknown>(
+      `/api/chat/sessions/${sessionId}/queued-tasks/${taskId}/prioritize`,
+      { method: "POST" },
+    );
+    return parseWithFallback(
+      raw,
+      PrioritizeQueuedChatTaskResponseSchema,
+      EMPTY_PRIORITIZE_QUEUED_CHAT_TASK_RESPONSE,
+      { endpoint: "POST /api/chat/sessions/:id/queued-tasks/:taskId/prioritize" },
+    );
+  }
+
+  async clearQueuedChatTasks(sessionId: string): Promise<void> {
+    await this.fetch<void>(`/api/chat/sessions/${sessionId}/queued-tasks`, {
+      method: "DELETE",
+    });
   }
 
   /** Live execution timeline for a task — used by the chat screen to

@@ -29,6 +29,7 @@ import type {
   ListProjectsResponse,
   MemberWithUser,
   PinnedItem,
+  PrioritizeQueuedChatTaskResponse,
   Project,
   ProjectResource,
   RuntimeDevice,
@@ -333,6 +334,15 @@ export const SendChatMessageResponseSchema: z.ZodType<SendChatMessageResponse> =
   queued: z.boolean().optional().catch(undefined),
   created_at: z.string().default(""),
 }).loose();
+
+export const PrioritizeQueuedChatTaskResponseSchema:
+  z.ZodType<PrioritizeQueuedChatTaskResponse> = z.object({
+    task_id: z.string(),
+    active_task_id: z.string().optional(),
+  }).loose();
+
+export const EMPTY_PRIORITIZE_QUEUED_CHAT_TASK_RESPONSE:
+  PrioritizeQueuedChatTaskResponse = { task_id: "" };
 
 // Live timeline emitted by the agent runtime while a task is running. Each
 // row is one execution step (thinking / tool_use / tool_result / text /

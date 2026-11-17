@@ -32,6 +32,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -48,11 +49,12 @@ import type {
 import {
   enqueuePendingChatTask,
   hideQueuedChatMessages,
+  prioritizePendingChatTask,
   removePendingChatTask,
 } from "@multica/core/chat/pending";
 import { refetchChatSessionsAfterCommit } from "@multica/core/chat/session-list";
 import { canAssignAgentToIssue } from "@multica/core/permissions/rules";
-import { api } from "@/data/api";
+import { api, ApiError } from "@/data/api";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { agentListOptions } from "@/data/queries/agents";
@@ -86,12 +88,17 @@ import {
 } from "@/lib/dispatch-reason";
 import { useT } from "@/lib/i18n";
 import { useAgentPresence } from "@/lib/use-agent-presence";
+import {
+  canSteerQueuedTask,
+  shouldPromptSendMode,
+} from "@/lib/chat-queue";
 import { Header } from "@/components/ui/header";
 import { Text } from "@/components/ui/text";
 import { ChatTitleButton } from "@/components/chat/chat-title-button";
 import { ChatSessionActions } from "@/components/chat/chat-session-actions";
 import { ChatMessageList } from "@/components/chat/chat-message-list";
 import { ChatComposer } from "@/components/chat/chat-composer";
+import { ChatQueue } from "@/components/chat/chat-queue";
 import { AgentPickerSheet } from "@/components/chat/agent-picker-sheet";
 import { NoAgentBanner } from "@/components/chat/no-agent-banner";
 import { OfflineBanner } from "@/components/chat/offline-banner";
@@ -309,11 +316,106 @@ export default function ChatTab() {
     [activeSessionId, currentAgent, createSession],
   );
 
+  /** Move a queued task to the head, then stop the task it displaced.
+   *  Web's order: prioritize first, cancel the old head second. The
+   *  optimistic queue order is rolled back only if prioritize itself
+   *  failed; the message stays queued server-side either way. */
+  const steerQueuedTask = useCallback(
+    async (
+      sessionId: string,
+      taskId: string,
+      fallbackActiveTaskId?: string,
+    ) => {
+      const pendingKey = chatKeys.pendingTask(sessionId);
+      const snapshot = qc.getQueryData<ChatPendingTask>(pendingKey);
+      qc.setQueryData<ChatPendingTask>(pendingKey, (old) =>
+        prioritizePendingChatTask(old, taskId),
+      );
+      try {
+        const result = await api.prioritizeQueuedChatTask(sessionId, taskId);
+        if (result.task_id !== taskId) {
+          throw new Error("invalid prioritize response");
+        }
+        const activeTaskId = result.active_task_id ?? fallbackActiveTaskId;
+        if (activeTaskId && activeTaskId !== taskId) {
+          await api.cancelTaskById(activeTaskId);
+        }
+      } catch (err) {
+        qc.setQueryData(pendingKey, snapshot);
+        Alert.alert(
+          t("queue.steer"),
+          err instanceof ApiError && err.status === 409
+            ? t("queue.steer_unavailable_toast")
+            : t("queue.action_failed"),
+        );
+      } finally {
+        invalidatePendingTask(qc, sessionId);
+        qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
+      }
+    },
+    [qc, t],
+  );
+
+  /** Ask what a send should do while a turn is already running. Native
+   *  ActionSheet on iOS, 3-button Alert elsewhere. Returns null when the
+   *  user backs out, which the composer turns back into a restored draft. */
+  const promptSendMode = useCallback(
+    (): Promise<"queue" | "steer" | null> => {
+      const steerAvailable = canSteerQueuedTask(pendingTask?.status);
+      const message = steerAvailable
+        ? t("queue.mode_message")
+        : t("queue.steer_unavailable");
+      return new Promise((resolve) => {
+        if (Platform.OS === "ios") {
+          const options = steerAvailable
+            ? [t("queue.mode_queue"), t("queue.steer"), t("common:actions.cancel")]
+            : [t("queue.mode_queue"), t("common:actions.cancel")];
+          ActionSheetIOS.showActionSheetWithOptions(
+            {
+              options,
+              cancelButtonIndex: options.length - 1,
+              title: t("queue.mode_title"),
+              message,
+            },
+            (index) => {
+              if (index === 0) resolve("queue");
+              else if (steerAvailable && index === 1) resolve("steer");
+              else resolve(null);
+            },
+          );
+          return;
+        }
+        Alert.alert(
+          t("queue.mode_title"),
+          message,
+          [
+            {
+              text: t("common:actions.cancel"),
+              style: "cancel",
+              onPress: () => resolve(null),
+            },
+            { text: t("queue.mode_queue"), onPress: () => resolve("queue") },
+            ...(steerAvailable
+              ? [{ text: t("queue.steer"), onPress: () => resolve("steer" as const) }]
+              : []),
+          ],
+          { cancelable: true, onDismiss: () => resolve(null) },
+        );
+      });
+    },
+    [pendingTask?.status, t],
+  );
+
   const handleSend = useCallback(
     async (
       content: string,
       attachmentIds: string[] = [],
-      options: { clearDraft?: boolean } = {},
+      options: {
+        clearDraft?: boolean;
+        /** Explicit choice — queue rows and retry skip the prompt. */
+        mode?: "queue" | "steer";
+        promptMode?: boolean;
+      } = {},
     ) => {
       if (!currentAgent) return;
       // Invoke permission was revoked while this session was open — the server
@@ -333,6 +435,25 @@ export default function ChatTab() {
         );
         return;
       }
+
+      let mode = options.mode;
+      if (
+        !mode &&
+        options.promptMode !== false &&
+        shouldPromptSendMode({
+          isRunning: sending,
+          supportsQueue: pendingTask?.supports_queue,
+        })
+      ) {
+        const picked = await promptSendMode();
+        // Throw so the composer restores the draft instead of silently
+        // swallowing what the user typed.
+        if (!picked) throw new Error("send-cancelled");
+        mode = picked;
+      }
+      // The head at prompt time is the task a steer must interrupt. The
+      // prioritize response usually names it, but older servers omit it.
+      const previousHeadTaskId = pendingTask?.task_id;
 
       const isNewSession = !activeSessionId;
       setFailedSend(null);
@@ -411,6 +532,12 @@ export default function ChatTab() {
           supports_queue: result.supports_queue,
           queued: result.queued,
         });
+        // `queued === false` means the previous turn ended while the sheet
+        // was open: this message is already the active head, so there is
+        // nothing to prioritize.
+        if (mode === "steer" && result.queued !== false) {
+          await steerQueuedTask(sessionId, result.task_id, previousHeadTaskId);
+        }
         qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
         // This send just committed the new session's server-derived title.
         if (isNewSession) {
@@ -447,6 +574,11 @@ export default function ChatTab() {
       t,
       promoteNewDraft,
       clearDraft,
+      sending,
+      pendingTask?.supports_queue,
+      pendingTask?.task_id,
+      promptSendMode,
+      steerQueuedTask,
     ],
   );
 
@@ -465,6 +597,61 @@ export default function ChatTab() {
       })
       .finally(() => invalidatePendingTask(qc, sessionId));
   }, [pendingTask, activeSessionId, qc]);
+
+  // ── Queue row actions ──────────────────────────────────────────────────
+  const handleSteerQueuedTask = useCallback(
+    (taskId: string) => {
+      if (!activeSessionId) return;
+      return steerQueuedTask(activeSessionId, taskId);
+    },
+    [activeSessionId, steerQueuedTask],
+  );
+
+  const handleRemoveQueuedTask = useCallback(
+    async (taskId: string) => {
+      if (!activeSessionId) return;
+      const pendingKey = chatKeys.pendingTask(activeSessionId);
+      const snapshot = qc.getQueryData<ChatPendingTask>(pendingKey);
+      qc.setQueryData<ChatPendingTask>(pendingKey, (old) =>
+        removePendingChatTask(old, taskId),
+      );
+      try {
+        // Queued-only cancel: the server must not touch a task that has
+        // already been claimed (`expected_status=queued` → 409).
+        await api.cancelTaskById(taskId, {
+          queuedAction: "remove",
+          sessionId: activeSessionId,
+        });
+      } catch {
+        qc.setQueryData(pendingKey, snapshot);
+        Alert.alert(t("queue.remove"), t("queue.action_failed"));
+      } finally {
+        invalidatePendingTask(qc, activeSessionId);
+        qc.invalidateQueries({
+          queryKey: chatKeys.messages(activeSessionId),
+        });
+      }
+    },
+    [activeSessionId, qc, t],
+  );
+
+  const handleClearQueuedTasks = useCallback(async () => {
+    if (!activeSessionId) return;
+    const pendingKey = chatKeys.pendingTask(activeSessionId);
+    const snapshot = qc.getQueryData<ChatPendingTask>(pendingKey);
+    qc.setQueryData<ChatPendingTask>(pendingKey, (old) =>
+      old ? { ...old, queued_tasks: [] } : old,
+    );
+    try {
+      await api.clearQueuedChatTasks(activeSessionId);
+    } catch {
+      qc.setQueryData(pendingKey, snapshot);
+      Alert.alert(t("queue.clear"), t("queue.action_failed"));
+    } finally {
+      invalidatePendingTask(qc, activeSessionId);
+      qc.invalidateQueries({ queryKey: chatKeys.messages(activeSessionId) });
+    }
+  }, [activeSessionId, qc, t]);
 
   // ── Header / sheet actions ─────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
@@ -598,9 +785,9 @@ export default function ChatTab() {
               onPress={() => {
                 const retry = visibleFailedSend;
                 setFailedSend(null);
-                void handleSend(retry.content, retry.attachmentIds).catch(
-                  () => {},
-                );
+                void handleSend(retry.content, retry.attachmentIds, {
+                  promptMode: false,
+                }).catch(() => {});
               }}
               hitSlop={8}
             >
@@ -619,12 +806,21 @@ export default function ChatTab() {
             </Pressable>
           </View>
         ) : null}
+        <ChatQueue
+          tasks={pendingTask?.queued_tasks ?? []}
+          headStatus={pendingTask?.status}
+          disabled={disabled}
+          onSteer={handleSteerQueuedTask}
+          onRemove={handleRemoveQueuedTask}
+          onClear={handleClearQueuedTasks}
+        />
         <ChatComposer
           value={draft}
           onChangeText={(next) => setDraft(draftKey, next)}
           onSend={handleSend}
           onStop={handleStop}
           sending={sending}
+          allowSubmitWhileRunning={pendingTask?.supports_queue === true}
           allowStop={pendingTask?.status !== "queued"}
           disabled={disabled}
           disabledReason={disabledReason}
