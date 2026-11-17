@@ -177,3 +177,111 @@ describe("api runtime backend", () => {
     );
   });
 });
+
+class FakeXHR {
+  static last: FakeXHR | null = null;
+
+  method = "";
+  url = "";
+  headers: Record<string, string> = {};
+  body: unknown = null;
+  timeout = 0;
+  status = 0;
+  responseText = "";
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  ontimeout: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+
+  setRequestHeader(name: string, value: string) {
+    this.headers[name] = value;
+  }
+
+  send(body: unknown) {
+    this.body = body;
+    FakeXHR.last = this;
+  }
+
+  respond(status: number, body: unknown) {
+    this.status = status;
+    this.responseText = JSON.stringify(body);
+    this.onload?.();
+  }
+
+  fail() {
+    this.onerror?.();
+  }
+}
+
+describe("api.uploadFile (ZXP-29)", () => {
+  const attachment = {
+    id: "att-1",
+    filename: "photo.jpg",
+    url: "https://api.example.test/api/attachments/att-1/download",
+    content_type: "image/jpeg",
+  };
+
+  afterEach(() => {
+    api.setToken(null);
+    FakeXHR.last = null;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("sends the multipart body through XMLHttpRequest, never expo fetch", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal(
+      "XMLHttpRequest",
+      FakeXHR as unknown as typeof XMLHttpRequest,
+    );
+    api.setToken("token-1");
+
+    const pending = api.uploadFile({
+      uri: "file:///tmp/photo.jpg",
+      name: "photo.jpg",
+      type: "image/jpeg",
+    });
+
+    const xhr = FakeXHR.last;
+    expect(xhr).not.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(xhr?.method).toBe("POST");
+    expect(xhr?.url).toBe("https://api.example.test/api/upload-file");
+    // Auth + client identity survive; Content-Type must stay unset so the
+    // native layer writes the multipart boundary itself.
+    expect(xhr?.headers.Authorization).toBe("Bearer token-1");
+    expect(xhr?.headers["X-Client-Platform"]).toBe("mobile");
+    expect(xhr?.headers["Content-Type"]).toBeUndefined();
+    expect(xhr?.body).toBeInstanceOf(FormData);
+
+    xhr?.respond(200, attachment);
+    await expect(pending).resolves.toMatchObject({ id: "att-1" });
+  });
+
+  it("surfaces transport failures so the chip can show error + retry", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.stubGlobal(
+      "XMLHttpRequest",
+      FakeXHR as unknown as typeof XMLHttpRequest,
+    );
+
+    const pending = api.uploadFile({
+      uri: "file:///tmp/photo.jpg",
+      name: "photo.jpg",
+      type: "image/jpeg",
+    });
+    FakeXHR.last?.fail();
+
+    await expect(pending).rejects.toMatchObject({
+      status: 0,
+      message: expect.stringContaining("Network request failed"),
+    });
+  });
+});

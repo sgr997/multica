@@ -334,7 +334,9 @@
     "remove_mention": "Remove mention {{name}}",
     "retry_upload": "Retry upload of {{name}}",
     "open_file": "Open {{name}}",
-    "remove_file": "Remove {{name}}"
+    "remove_file": "Remove {{name}}",
+    "upload_failed_title": "Upload failed",
+    "upload_failed_message": "The file didn't upload. Check your connection and retry, or remove it."
   },
   "summary.comment": "Comment run",
   "summary.chat": "Chat run",

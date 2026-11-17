@@ -213,6 +213,11 @@ const FETCH_TIMEOUT_MS = 30_000;
  *  the full data-request budget. */
 const AUTH_FETCH_TIMEOUT_MS = 12_000;
 
+/** Uploads stream the file off disk through RN's native networking stack.
+ *  A 5 MB+ photo on cellular can legitimately take longer than the data
+ *  request budget, so it gets its own ceiling. */
+const UPLOAD_TIMEOUT_MS = 120_000;
+
 interface FetchOptions extends RequestInit {
   signal?: AbortSignal;
   /** Per-request override of FETCH_TIMEOUT_MS. */
@@ -1839,21 +1844,17 @@ class ApiClient {
         0,
       );
     }
-    const res = await fetch(`${apiBaseUrl}${path}`, {
-      method: "POST",
+    const res = await this.postMultipart(
+      `${apiBaseUrl}${path}`,
+      formData,
       headers,
-      body: formData,
-    });
+      UPLOAD_TIMEOUT_MS,
+    );
     const duration = Date.now() - start;
 
-    if (!res.ok) {
+    if (res.status < 200 || res.status >= 300) {
       if (res.status === 401) this.options.onUnauthorized?.();
-      let body: unknown;
-      try {
-        body = await res.json();
-      } catch {
-        body = undefined;
-      }
+      const body = res.body;
       const message =
         (body && typeof body === "object" && "message" in body
           ? String((body as { message: unknown }).message)
@@ -1876,7 +1877,7 @@ class ApiClient {
     // user's text as `![](undefined)`. Throw on shape mismatch so the
     // caller's Alert path fires instead of letting a broken link land in
     // the editor.
-    const json: unknown = await res.json();
+    const json: unknown = res.body;
     const parsed = AttachmentSchema.safeParse(json);
     if (!parsed.success) {
       console.error(`[api] ← shape mismatch ${path}`, {
@@ -1897,6 +1898,83 @@ class ApiClient {
       throw new ApiError("Upload response missing id", res.status, json);
     }
     return parsed.data;
+  }
+
+  /**
+   * POST multipart/form-data through RN's native `XMLHttpRequest`.
+   *
+   * Expo SDK 57 installs `expo/fetch` as the global fetch, and its
+   * `convertFormDataAsync()` rejects React Native's `{ uri, name, type }`
+   * file parts with `Unsupported FormDataPart implementation` before any
+   * request leaves the device. XHR hands the FormData to the native
+   * networking layer, which streams the file from disk and writes the
+   * multipart boundary itself (so we must not set Content-Type).
+   */
+  private postMultipart(
+    url: string,
+    formData: FormData,
+    headers: Record<string, string>,
+    timeoutMs: number,
+  ): Promise<{ status: number; body: unknown }> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let settled = false;
+
+      const fail = (error: ApiError) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      };
+
+      xhr.open("POST", url);
+      xhr.timeout = timeoutMs;
+      for (const [name, value] of Object.entries(headers)) {
+        xhr.setRequestHeader(name, value);
+      }
+
+      xhr.onload = () => {
+        if (settled) return;
+        settled = true;
+        let body: unknown;
+        if (xhr.responseText) {
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            body = undefined;
+          }
+        }
+        resolve({ status: xhr.status, body });
+      };
+      xhr.onerror = () =>
+        fail(
+          new ApiError(
+            "Network request failed while uploading. Check your connection and retry.",
+            0,
+          ),
+        );
+      xhr.ontimeout = () =>
+        fail(
+          new ApiError(
+            `Upload timed out after ${Math.round(timeoutMs / 1000)}s`,
+            0,
+          ),
+        );
+      xhr.onabort = () =>
+        fail(new ApiError("Upload was cancelled", 0));
+
+      try {
+        xhr.send(formData);
+      } catch (error) {
+        fail(
+          error instanceof ApiError
+            ? error
+            : new ApiError(
+                error instanceof Error ? error.message : "Upload failed",
+                0,
+              ),
+        );
+      }
+    });
   }
 }
 

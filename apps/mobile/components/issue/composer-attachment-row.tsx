@@ -26,7 +26,14 @@
  * vertical footprint minimal.
  */
 import { useMemo } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { resolveAttachmentUrl } from "@/lib/attachment-url";
 import { useLightbox } from "@/lib/markdown/lightbox-provider";
@@ -177,6 +184,7 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
   const theme = THEME[colorScheme];
   const { open } = useLightbox();
   const { t } = useT("issues");
+  const { t: tCommon } = useT("common");
 
   const isImage = useMemo(
     () => item.mimeType.startsWith("image/"),
@@ -184,8 +192,25 @@ function AttachmentChipView({ item, onRemove, onRetry }: AttachmentChipProps) {
   );
 
   const onPress = () => {
-    if (item.status === "failed" && onRetry) {
-      onRetry(item.localId);
+    if (item.status === "failed") {
+      // Surface the real error instead of silently retrying: a failed upload
+      // blocks sending, so the reader needs to know why before deciding.
+      Alert.alert(
+        t("a11y.upload_failed_title"),
+        item.error?.trim() || t("a11y.upload_failed_message"),
+        [
+          { text: tCommon("actions.cancel"), style: "cancel" },
+          {
+            text: tCommon("actions.remove"),
+            style: "destructive",
+            onPress: () => onRemove(item.localId),
+          },
+          {
+            text: tCommon("actions.retry"),
+            onPress: () => onRetry?.(item.localId),
+          },
+        ],
+      );
       return;
     }
     if (item.status !== "completed") return;

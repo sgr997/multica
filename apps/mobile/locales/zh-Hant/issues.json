@@ -320,7 +320,9 @@
     "remove_mention": "移除提及 {{name}}",
     "retry_upload": "重試上傳 {{name}}",
     "open_file": "開啟 {{name}}",
-    "remove_file": "移除 {{name}}"
+    "remove_file": "移除 {{name}}",
+    "upload_failed_title": "上傳失敗",
+    "upload_failed_message": "檔案沒有上傳成功。檢查網路後重試，或移除該附件。"
   },
   "summary.comment": "評論執行",
   "summary.chat": "聊天執行",
