@@ -17,12 +17,18 @@ vi.mock("react", async (importOriginal) => ({
 vi.mock("react-native", () => ({
   ActionSheetIOS: {}, Alert: {}, FlatList: "FlatList", View: "View",
 }));
-vi.mock("expo-router", () => ({ router: { push: vi.fn() } }));
+vi.mock("expo-router", () => ({
+  router: { push: vi.fn() },
+  useIsFocused: () => true,
+}));
 vi.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
 vi.mock("@tanstack/react-query", () => ({
   useQuery: () => ({ data: state.rows, refetch: state.refetch }),
 }));
 vi.mock("@/data/queries/inbox", () => ({ inboxListOptions: vi.fn() }));
+vi.mock("@/data/realtime/use-inbox-refresh-fallback", () => ({
+  useInboxRefreshFallback: vi.fn(),
+}));
 vi.mock("@/data/mutations/inbox", () => {
   const mutation = () => ({ mutate: vi.fn() });
   return {

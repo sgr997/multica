@@ -193,6 +193,7 @@ export default function ChatTab() {
     sessionId: activeSessionId,
     focused: isFocused,
     pendingTaskId: pendingTask?.task_id ?? null,
+    wsId,
   });
 
   // ── Derived ────────────────────────────────────────────────────────────

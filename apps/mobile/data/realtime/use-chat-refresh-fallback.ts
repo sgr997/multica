@@ -33,18 +33,31 @@ export function refreshChatSessionCaches(
   qc: QueryClient,
   sessionId: string,
   pendingTaskId?: string | null,
+  wsId?: string | null,
+  options?: { skipSession?: boolean },
 ) {
-  void qc.invalidateQueries({
-    queryKey: chatKeys.messages(sessionId),
-    refetchType: "active",
-  });
-  void qc.invalidateQueries({
-    queryKey: chatKeys.pendingTask(sessionId),
-    refetchType: "active",
-  });
-  if (pendingTaskId) {
+  if (!options?.skipSession) {
     void qc.invalidateQueries({
-      queryKey: chatKeys.taskMessages(pendingTaskId),
+      queryKey: chatKeys.messages(sessionId),
+      refetchType: "active",
+    });
+    void qc.invalidateQueries({
+      queryKey: chatKeys.pendingTask(sessionId),
+      refetchType: "active",
+    });
+    if (pendingTaskId) {
+      void qc.invalidateQueries({
+        queryKey: chatKeys.taskMessages(pendingTaskId),
+        refetchType: "active",
+      });
+    }
+  }
+  // The session list is listing-level realtime (`useChatSessionsRealtime`).
+  // A missed frame leaves its titles / unread flags stale until a pull, so it
+  // rides the same catch-up + polling cadence.
+  if (wsId) {
+    void qc.invalidateQueries({
+      queryKey: chatKeys.sessions(wsId),
       refetchType: "active",
     });
   }
@@ -58,11 +71,14 @@ export function useChatRefreshFallback({
   sessionId,
   focused,
   pendingTaskId,
+  wsId,
 }: {
   sessionId: string | null;
   focused: boolean;
   /** Active task whose live transcript should follow the polling cadence. */
   pendingTaskId?: string | null;
+  /** Workspace whose session list should follow the same cadence. */
+  wsId?: string | null;
 }) {
   const qc = useQueryClient();
   const connected = useWSConnected();
@@ -71,6 +87,8 @@ export function useChatRefreshFallback({
   );
   const pendingTaskIdRef = useRef(pendingTaskId);
   pendingTaskIdRef.current = pendingTaskId;
+  const wsIdRef = useRef(wsId);
+  wsIdRef.current = wsId;
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (status) => {
@@ -80,18 +98,30 @@ export function useChatRefreshFallback({
   }, []);
 
   useEffect(() => {
-    if (!focused || !sessionId) return;
+    if (!focused || (!sessionId && !wsId)) return;
 
     // One refresh per focus/session/connectivity/foreground transition.
     // `invalidateQueries` on an inactive query is a no-op, so a background
     // session cannot be refreshed by a stale timer.
-    refreshChatSessionCaches(qc, sessionId, pendingTaskIdRef.current);
+    refreshChatSessionCaches(
+      qc,
+      sessionId ?? "",
+      pendingTaskIdRef.current,
+      wsId,
+      { skipSession: !sessionId },
+    );
 
     if (!appActive || connected) return;
 
     const timer = setInterval(() => {
-      refreshChatSessionCaches(qc, sessionId, pendingTaskIdRef.current);
+      refreshChatSessionCaches(
+        qc,
+        sessionId ?? "",
+        pendingTaskIdRef.current,
+        wsIdRef.current,
+        { skipSession: !sessionId },
+      );
     }, CHAT_FALLBACK_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [focused, sessionId, appActive, connected, qc]);
+  }, [focused, sessionId, appActive, connected, qc, wsId]);
 }

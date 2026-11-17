@@ -46,12 +46,14 @@ function runHook(options: {
   sessionId?: string | null;
   focused?: boolean;
   pendingTaskId?: string | null;
+  wsId?: string | null;
 }) {
   useChatRefreshFallback({
     sessionId: options.sessionId === undefined ? "session-1" : options.sessionId,
     focused: options.focused ?? true,
     pendingTaskId:
       options.pendingTaskId === undefined ? "task-1" : options.pendingTaskId,
+    wsId: options.wsId === undefined ? null : options.wsId,
   });
 }
 
@@ -107,5 +109,20 @@ describe("useChatRefreshFallback", () => {
     expect(harness.invalidateQueries).not.toHaveBeenCalled();
     vi.advanceTimersByTime(20_000);
     expect(harness.invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("keeps the session list fresh even with no conversation open", () => {
+    runHook({ sessionId: null, wsId: "ws-1" });
+
+    expect(harness.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: chatKeys.sessions("ws-1"),
+      refetchType: "active",
+    });
+    // Nothing conversation-scoped may fire without a session.
+    expect(harness.invalidateQueries).toHaveBeenCalledTimes(1);
+
+    harness.invalidateQueries.mockClear();
+    vi.advanceTimersByTime(4_000);
+    expect(harness.invalidateQueries).toHaveBeenCalledTimes(1);
   });
 });

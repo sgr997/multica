@@ -6,7 +6,7 @@ import {
   View,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { InboxItem } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
@@ -27,6 +27,7 @@ import {
   useMarkInboxRead,
 } from "@/data/mutations/inbox";
 import { useWorkspaceStore } from "@/data/workspace-store";
+import { useInboxRefreshFallback } from "@/data/realtime/use-inbox-refresh-fallback";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { THEME } from "@/lib/theme";
@@ -40,10 +41,16 @@ export default function Inbox() {
   const { t } = useT("inbox");
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
+  const isFocused = useIsFocused();
   const { colorScheme } = useColorScheme();
   const { data: rawItems, isLoading, error, refetch } = useQuery(
     inboxListOptions(wsId),
   );
+  // Realtime covers the inbox while the socket is healthy; this covers the
+  // two cases it cannot — frames missed while the app was suspended, and a
+  // socket that never connects. Without it the only way to see current state
+  // was pull-to-refresh.
+  useInboxRefreshFallback({ wsId, focused: isFocused });
   const { refreshing, onRefresh } = useRefreshWithHaptics(refetch);
   // Dedup + drop archived to match web/desktop. See CLAUDE.md
   // "Behavioral parity" → inbox dedup incident.
