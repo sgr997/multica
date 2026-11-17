@@ -114,9 +114,10 @@ export function shouldRestoreOffsetDuringHeaderAction({
  * The backstop for every re-anchor we do not have an event for: a presented
  * ActionSheet, a native list detach, a platform quirk. The signature is a
  * single large upward jump that ends at zero while nothing user-driven is in
- * flight. Small deltas are ignored on purpose — a status-bar "scroll to top"
- * is animated and arrives a few dozen pixels at a time, so it never matches
- * this shape and the reader keeps that gesture.
+ * flight. Small deltas are ignored here on purpose; a reset that unwinds in
+ * several small steps is covered by `shouldRestoreOffsetDuringHeaderAction`
+ * instead. The timeline disables iOS's own `scrollsToTop` gesture, so no
+ * system "scroll to top" can be mistaken for a reset.
  */
 export function shouldRecoverFromUnintendedTop({
   savedOffset,

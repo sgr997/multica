@@ -809,6 +809,17 @@ export function TimelineList({
         data={dataWithDivider}
         keyExtractor={(row) => row.entry.id}
         ListHeaderComponent={ListHeader}
+        // iOS installs a system "tap the top of the screen → scroll to top"
+        // gesture on every scroll view (`UIScrollView.scrollsToTop`, on by
+        // default). Its hit zone covers the status bar and the navigation
+        // bar's title row, so a tap anywhere up there that doesn't land on a
+        // control — the title, the empty space between header items — drops
+        // this timeline back to the top. No JS runs for it: it is a native
+        // scroll animation, which is why offset bookkeeping and the guards
+        // below never saw it and reported "nothing moved". Turning it off is
+        // the only way to stop the jump; the reader keeps every explicit way
+        // of scrolling.
+        scrollsToTop={false}
         // Drag-to-dismiss keyboard — when the user scrolls the timeline
         // while the composer keyboard is up, the keyboard slides down
         // interactively (iMessage / WhatsApp / Slack idiom). Pairs with the
