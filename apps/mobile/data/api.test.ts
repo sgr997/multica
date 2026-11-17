@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "./api";
+import { applyRuntimeConfig, resetRuntimeConfig } from "@/lib/runtime-config";
 
 // api.ts refuses to load without a base URL; set it before the import runs.
 vi.hoisted(() => {
@@ -153,5 +154,26 @@ describe("api.listIssues requester compatibility", () => {
     await api.listIssues({ created_by_user_id: "me" });
     expect(fetchMock).toHaveBeenCalledTimes(supported ? 1 : 2);
     if (!supported) expect(String(fetchMock.mock.calls[1]?.[0])).toContain("creator_id=me");
+  });
+});
+
+describe("api runtime backend", () => {
+  afterEach(() => resetRuntimeConfig());
+
+  it("uses the newly selected backend for subsequent requests", async () => {
+    const fetchMock = vi.fn(async () => Response.json([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    applyRuntimeConfig({
+      apiUrl: "https://selfhost.example.test",
+      webUrl: "https://selfhost.example.test",
+    });
+
+    await api.listAgents();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://selfhost.example.test/api/agents",
+      expect.any(Object),
+    );
   });
 });

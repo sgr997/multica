@@ -77,9 +77,11 @@ pnpm ios:mobile:device:prod:release
 
 ## セルフホストインスタンスへの接続
 
-Release ビルドは API アドレスをアプリに埋め込みます。`apps/mobile/.env.production` は公開されている multica.ai のデフォルト値とともにコミットされているため、新しくクローンした状態でも本番ビルドができます。
+Release ビルドは API アドレスを初期値としてアプリに埋め込みます。`apps/mobile/.env.production` は公開されている multica.ai のデフォルト値とともにコミットされているため、新しくクローンした状態でもそのまま Cloud に接続できます。インストール済みの同じアプリでも、サインイン前にセルフホスト先へ切り替えられます。
 
-セルフホストインスタンスに接続するには:
+サインイン画面で **サーバーを変更** をタップし、`https` の API アドレス（必要なら別の Web アドレスも）を入力します。データは移行されないことを確認して保存すると、`/api/config` を検査し、以前のセッションを消去してサインイン画面へ戻ります。設定は再起動後も保持されます。`http` は開発ビルドでのみ許可されます。
+
+新規インストールの初期値を別のサーバーにするには:
 
 <Steps>
 <Step>
@@ -90,7 +92,7 @@ EXPO_PUBLIC_API_URL=https://api.example.com
 EXPO_PUBLIC_WEB_URL=https://app.example.com
 ```
 
-`.local` ファイルはコミット済みのデフォルトをキーごとに上書きし、gitignore されるため、個人の API アドレスがリポジトリに入ることはありません。`EXPO_PUBLIC_API_URL` は必須です。`EXPO_PUBLIC_WEB_URL` は "Copy link" や "Open on web" などの入口に使われます。両方を設定してください。書かなかったキーには multica.ai のデフォルト値が使われるため、これらの入口がセルフホストインスタンスではなく multica.ai を開きます。
+`.local` ファイルはコミット済みのデフォルトをキーごとに上書きし、gitignore されるため、個人の API アドレスがリポジトリに入ることはありません。`EXPO_PUBLIC_API_URL` は必須です。`EXPO_PUBLIC_WEB_URL` は "Copy link" や "Open on web" などの入口に使われ、空の場合は API アドレスのオリジンを使います。これらの値は新規インストールの初期アドレスだけを決め、後から切り替えられます。
 </Step>
 <Step>
 ビルドコマンド `pnpm ios:mobile:device:prod:release` を再実行します。iPhone がこの API アドレスに到達できる必要があります。LAN のアドレスを使う場合は `localhost` と書かないでください。iPhone 上では iPhone 自身を指します。

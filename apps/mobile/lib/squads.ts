@@ -26,10 +26,17 @@ export interface SquadMemberKey {
   member_id: string;
 }
 
+/** The membership fields needed to decide whether a squad is "mine". Squad
+ *  previews and full member rows both satisfy this shape. */
+export type SquadInvolvementMember = Pick<
+  SquadMember,
+  "member_type" | "member_id"
+>;
+
 export interface SquadListFilter {
   query: string;
   scope: SquadScope;
-  /** IDs returned by `/api/squads/involved`; only used for scope === "mine". */
+  /** IDs derived from squad membership; only used for scope === "mine". */
   involvedIds: ReadonlySet<string>;
 }
 
@@ -52,6 +59,70 @@ export function filterSquads(
     if (!query) return true;
     return squad.name.toLocaleLowerCase().includes(query);
   });
+}
+
+/**
+ * Mirrors `ListInvolvedSquadIDs` in server/pkg/db/queries/squad.sql:
+ * the caller is a member, the caller owns the leader agent, or the caller
+ * owns an agent that is a member of the squad.
+ */
+export function isSquadInvolved(
+  squad: Pick<Squad, "leader_id">,
+  members: readonly SquadInvolvementMember[],
+  userId: string | null | undefined,
+  ownedAgentIds: ReadonlySet<string>,
+): boolean {
+  if (!userId) return false;
+  if (squad.leader_id && ownedAgentIds.has(squad.leader_id)) return true;
+  return members.some(
+    (member) =>
+      (member.member_type === "member" && member.member_id === userId) ||
+      (member.member_type === "agent" &&
+        ownedAgentIds.has(member.member_id)),
+  );
+}
+
+/**
+ * A squad's preview is capped at three members. When the preview length
+ * reaches `member_count` it is complete and can answer involvement without
+ * another request; otherwise the caller must load the full member list.
+ */
+export function hasCompleteMemberPreview(
+  squad: Pick<Squad, "member_count" | "member_preview">,
+): boolean {
+  const preview = squad.member_preview ?? [];
+  const count = squad.member_count;
+  return typeof count === "number" && preview.length >= count;
+}
+
+export function squadsNeedingMemberLookup(
+  squads: readonly Squad[],
+  ownedAgentIds: ReadonlySet<string>,
+): Squad[] {
+  return squads.filter(
+    (squad) =>
+      !(squad.leader_id && ownedAgentIds.has(squad.leader_id)) &&
+      !hasCompleteMemberPreview(squad),
+  );
+}
+
+export function collectInvolvedSquadIds(
+  squads: readonly Squad[],
+  membersBySquad: ReadonlyMap<string, readonly SquadInvolvementMember[]>,
+  userId: string | null | undefined,
+  ownedAgentIds: ReadonlySet<string>,
+): string[] {
+  if (!userId) return [];
+  return squads
+    .filter((squad) =>
+      isSquadInvolved(
+        squad,
+        membersBySquad.get(squad.id) ?? [],
+        userId,
+        ownedAgentIds,
+      ),
+    )
+    .map((squad) => squad.id);
 }
 
 /**

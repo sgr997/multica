@@ -53,6 +53,7 @@ import { useProjectRealtime } from "@/data/realtime/use-project-realtime";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { useT } from "@/lib/i18n";
+import { getWebBaseUrl } from "@/lib/runtime-config";
 
 export default function ProjectDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -107,7 +108,7 @@ export default function ProjectDetail() {
 
   const onPressMore = () => {
     if (!project) return;
-    const wsUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const wsUrl = getWebBaseUrl();
     const actions = ["cancel", isPinned ? "unpin" : "pin", "edit"];
     if (wsUrl) actions.push("open_web");
     if (canDelete) actions.push("delete");

@@ -77,9 +77,11 @@ pnpm ios:mobile:device:prod:release
 
 ## 连接自托管实例
 
-Release 构建会把 API 地址写入 App。`apps/mobile/.env.production` 已随仓库提交，默认指向 multica.ai 的公开后端，干净克隆即可构建生产版本。
+Release 构建把 API 地址写入 App，作为首次安装的初始默认值。`apps/mobile/.env.production` 已随仓库提交，默认指向 multica.ai 的公开后端，干净克隆即可直接使用 Cloud。同一个已安装的 App 可以在登录前切换到自托管后端。
 
-要连接自托管实例：
+在登录页点 **更换服务器**，填写 `https` API 地址（可选单独填写 Web 地址），确认不会迁移数据后保存。App 会检查 `/api/config`、清理旧会话并回到登录页；配置会在重启后保留。只有开发构建允许 `http`。
+
+如果希望新安装默认指向自托管实例：
 
 <Steps>
 <Step>
@@ -90,7 +92,7 @@ EXPO_PUBLIC_API_URL=https://api.example.com
 EXPO_PUBLIC_WEB_URL=https://app.example.com
 ```
 
-`.local` 文件按 key 覆盖提交的默认值，且已被 gitignore，个人 API 地址不会进入仓库。`EXPO_PUBLIC_API_URL` 必填；`EXPO_PUBLIC_WEB_URL` 用于 "Copy link"、"Open on web" 等入口。两个都要设置：没写的 key 会沿用 multica.ai 的默认值，这些入口就会打开 multica.ai，而不是你的实例。
+`.local` 文件按 key 覆盖提交的默认值，且已被 gitignore，个人 API 地址不会进入仓库。`EXPO_PUBLIC_API_URL` 必填；`EXPO_PUBLIC_WEB_URL` 用于 "Copy link"、"Open on web" 等入口；Web 地址留空时使用 API 地址的同源地址。这些值只决定新安装的初始地址，用户仍可在运行时切换。
 </Step>
 <Step>
 重新运行构建命令 `pnpm ios:mobile:device:prod:release`。iPhone 必须能访问这个 API 地址；使用局域网地址时不要写 `localhost`，它在 iPhone 上指向手机本身。

@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -8,12 +14,14 @@ import { TextField } from "@/components/ui/text-field";
 import { Button } from "@/components/ui/button";
 import { MulticaLogo } from "@/components/brand/multica-logo";
 import { useAuthStore } from "@/data/auth-store";
+import { useRuntimeConfigStore } from "@/lib/runtime-config";
 import { i18n, useT } from "@/lib/i18n";
 import { mapAuthError } from "@/lib/auth-error";
 
 export default function Login() {
   const { t } = useT("auth");
   const sendCode = useAuthStore((s) => s.sendCode);
+  const apiUrl = useRuntimeConfigStore((s) => s.apiUrl);
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +49,10 @@ export default function Login() {
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View className="flex-1 justify-center px-6 gap-6">
+        <ScrollView
+          contentContainerClassName="flex-grow justify-center px-6 py-6 gap-6"
+          keyboardShouldPersistTaps="handled"
+        >
           <View className="items-center gap-3">
             <MulticaLogo size={30} />
             <View className="gap-1 items-center">
@@ -86,7 +97,26 @@ export default function Login() {
                   : t("login.send_code")}
             </Text>
           </Button>
-        </View>
+
+          <View className="items-center gap-1">
+            <Text className="text-xs text-muted-foreground">
+              {t("server.current")}
+            </Text>
+            <Text
+              className="text-xs text-muted-foreground"
+              numberOfLines={1}
+            >
+              {apiUrl}
+            </Text>
+            <Pressable
+              onPress={() => router.push("/server")}
+              disabled={submitting}
+              className="py-2"
+            >
+              <Text className="text-sm text-primary">{t("server.change")}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

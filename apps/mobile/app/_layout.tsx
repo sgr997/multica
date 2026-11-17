@@ -16,13 +16,14 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { PortalHost } from "@rn-primitives/portal";
 import { api } from "@/data/api";
 import { maybeRenewSession } from "@/data/session-renewal";
 import { queryClient } from "@/data/query-client";
 import { useAuthStore } from "@/data/auth-store";
-import { useWorkspaceStore } from "@/data/workspace-store";
+import { initializeServerConfig } from "@/data/server-config";
+import { resetClientDataForServerSwitch } from "@/data/session-reset";
 import { SessionActivityBoundary } from "@/components/auth/session-activity-boundary";
 import { NetworkRefreshBridge } from "@/components/system/network-refresh-bridge";
 import { OfflineBanner } from "@/components/system/offline-banner";
@@ -45,37 +46,40 @@ prewarmHighlighter();
 
 function AuthInitializer({ children }: { children: React.ReactNode }) {
   const initialize = useAuthStore((s) => s.initialize);
-  const qc = useQueryClient();
   // Idempotent guard: 401 on multiple in-flight requests would otherwise
   // logout/navigate repeatedly during the same session-expire moment.
   const signingOutRef = useRef(false);
 
   useEffect(() => {
-    // Wire 401 handling onto the shared ApiClient singleton. Must be set
-    // before any request fires — initialize() below kicks off the first
-    // getMe() call, so do this synchronously first.
-    api.setOptions({
-      onUnauthorized: () => {
-        if (signingOutRef.current) return;
-        signingOutRef.current = true;
-        void (async () => {
-          await useAuthStore.getState().logout();
-          await useWorkspaceStore.getState().clear();
-          qc.clear();
-          router.replace("/login");
-          // Reset on next tick so a fresh session can hit 401 again later
-          // without being silently swallowed.
-          setTimeout(() => {
-            signingOutRef.current = false;
-          }, 0);
-        })();
-      },
-    });
-    // Launch check for the sliding session (MUL-7436). Runs after the token
-    // is restored and the identity probe has settled, so it never races the
-    // first getMe(); a no-op when there is no session to extend.
-    void initialize().then(() => maybeRenewSession());
-  }, [initialize, qc]);
+    void (async () => {
+      // Runtime server selection must land before the auth token is restored:
+      // initialize() immediately calls getMe() against the selected backend.
+      await initializeServerConfig();
+
+      // Wire 401 handling onto the shared ApiClient singleton before any
+      // request fires.
+      api.setOptions({
+        onUnauthorized: () => {
+          if (signingOutRef.current) return;
+          signingOutRef.current = true;
+          void (async () => {
+            await resetClientDataForServerSwitch();
+            router.replace("/login");
+            // Reset on next tick so a fresh session can hit 401 again later
+            // without being silently swallowed.
+            setTimeout(() => {
+              signingOutRef.current = false;
+            }, 0);
+          })();
+        },
+      });
+      // Launch check for the sliding session (MUL-7436). Runs after the token
+      // is restored and the identity probe has settled, so it never races the
+      // first getMe(); a no-op when there is no session to extend.
+      await initialize();
+      void maybeRenewSession();
+    })();
+  }, [initialize]);
 
   // Foreground transitions are one of the two "someone is using this" signals;
   // SessionActivityBoundary below supplies the other, so an app that stays

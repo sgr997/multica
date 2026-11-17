@@ -77,9 +77,11 @@ pnpm ios:mobile:device:prod:release
 
 ## 자체 호스팅 인스턴스 연결
 
-Release 빌드는 API 주소를 앱에 포함합니다. `apps/mobile/.env.production`은 공개 multica.ai 기본값과 함께 커밋되어 있어 새로 클론한 상태에서도 프로덕션 빌드가 가능합니다.
+Release 빌드는 API 주소를 초기 기본값으로 앱에 포함합니다. `apps/mobile/.env.production`은 공개 multica.ai 기본값과 함께 커밋되어 있어 새로 클론한 상태에서도 바로 Cloud에 연결할 수 있습니다. 설치된 같은 앱에서도 로그인 전에 자체 호스팅 서버로 전환할 수 있습니다.
 
-자체 호스팅 인스턴스에 연결하려면 다음과 같이 합니다.
+로그인 화면에서 **서버 변경**을 누르고 `https` API 주소(필요하면 별도 Web 주소도)를 입력합니다. 데이터가 이전되지 않는다는 확인을 거쳐 저장하면 `/api/config`를 확인하고 이전 세션을 지운 뒤 로그인 화면으로 돌아갑니다. 설정은 재시작 후에도 유지됩니다. `http`는 개발 빌드에서만 허용됩니다.
+
+새 설치의 초기 주소를 다른 서버로 지정하려면 다음과 같이 합니다.
 
 <Steps>
 <Step>
@@ -90,7 +92,7 @@ EXPO_PUBLIC_API_URL=https://api.example.com
 EXPO_PUBLIC_WEB_URL=https://app.example.com
 ```
 
-`.local` 파일은 커밋된 기본값을 키 단위로 덮어쓰며 gitignore되므로 개인 API 주소가 저장소에 들어가지 않습니다. `EXPO_PUBLIC_API_URL`은 필수입니다. `EXPO_PUBLIC_WEB_URL`은 "Copy link", "Open on web" 같은 메뉴에 사용됩니다. 두 값을 모두 설정하세요. 적지 않은 키는 multica.ai 기본값을 그대로 쓰므로 이 메뉴가 자체 호스팅 인스턴스 대신 multica.ai를 엽니다.
+`.local` 파일은 커밋된 기본값을 키 단위로 덮어쓰며 gitignore되므로 개인 API 주소가 저장소에 들어가지 않습니다. `EXPO_PUBLIC_API_URL`은 필수입니다. `EXPO_PUBLIC_WEB_URL`은 "Copy link", "Open on web" 같은 메뉴에 사용되며 비워 두면 API 주소의 origin을 씁니다. 이 값은 새 설치의 초기 주소만 정하며 사용자는 이후에도 전환할 수 있습니다.
 </Step>
 <Step>
 빌드 명령 `pnpm ios:mobile:device:prod:release`를 다시 실행합니다. iPhone에서 이 API 주소에 접근할 수 있어야 합니다. 로컬 네트워크 주소를 사용할 때는 `localhost`를 쓰지 마세요. iPhone에서는 휴대전화 자체를 가리킵니다.

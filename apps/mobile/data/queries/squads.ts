@@ -1,5 +1,12 @@
 import { queryOptions } from "@tanstack/react-query";
+import type { Squad } from "@multica/core/types";
 import { api } from "@/data/api";
+import {
+  collectInvolvedSquadIds,
+  hasCompleteMemberPreview,
+  squadsNeedingMemberLookup,
+  type SquadInvolvementMember,
+} from "@/lib/squads";
 
 export const squadKeys = {
   all: (wsId: string | null) => ["squads", wsId] as const,
@@ -23,12 +30,86 @@ export const squadListOptions = (wsId: string | null) =>
     enabled: !!wsId,
   });
 
-export const involvedSquadIdsOptions = (wsId: string | null) =>
-  queryOptions({
-    queryKey: squadKeys.involved(wsId),
-    queryFn: ({ signal }) => api.listInvolvedSquadIds({ signal }),
-    enabled: !!wsId,
+function involvementSignature(
+  squads: readonly Squad[],
+  userId: string | null,
+  ownedAgentIds: ReadonlySet<string>,
+): string {
+  return [
+    userId ?? "",
+    [...ownedAgentIds].sort().join(","),
+    ...squads.map((squad) => {
+      const preview = (squad.member_preview ?? [])
+        .map((member) => `${member.member_type}:${member.member_id}`)
+        .join(",");
+      return `${squad.id}:${squad.leader_id}:${squad.member_count ?? "?"}:${preview}`;
+    }),
+  ].join("|");
+}
+
+/**
+ * Squad involvement for the "mine" scope, derived from the squad list and
+ * per-squad member lists. `/api/squads/involved` exists only on newer
+ * backends, so the mobile list must not depend on it: older self-hosted
+ * deployments answer that path with `invalid squad id`.
+ *
+ * Complete member previews avoid a request; larger squads load their members
+ * in bounded batches.
+ */
+export const involvedSquadIdsOptions = (
+  wsId: string | null,
+  squads: readonly Squad[],
+  userId: string | null,
+  ownedAgentIds: ReadonlySet<string>,
+  agentsLoaded: boolean,
+) => {
+  const lookupSquads = squadsNeedingMemberLookup(squads, ownedAgentIds);
+  const signature = involvementSignature(squads, userId, ownedAgentIds);
+
+  return queryOptions({
+    queryKey: [...squadKeys.involved(wsId), signature] as const,
+    queryFn: async ({ signal }): Promise<string[]> => {
+      if (!userId) return [];
+
+      const membersBySquad = new Map<string, readonly SquadInvolvementMember[]>();
+      for (const squad of squads) {
+        if (hasCompleteMemberPreview(squad)) {
+          membersBySquad.set(squad.id, squad.member_preview ?? []);
+        }
+      }
+
+      const BATCH_SIZE = 4;
+      for (let i = 0; i < lookupSquads.length; i += BATCH_SIZE) {
+        const batch = lookupSquads.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (squad) => {
+            try {
+              const members = await api.listSquadMembers(squad.id, {
+                signal,
+              });
+              membersBySquad.set(squad.id, members);
+            } catch (error) {
+              if (signal.aborted) throw error;
+              console.warn("[squads] involvement lookup failed", {
+                squadId: squad.id,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }),
+        );
+      }
+
+      return collectInvolvedSquadIds(
+        squads,
+        membersBySquad,
+        userId,
+        ownedAgentIds,
+      );
+    },
+    enabled: !!wsId && !!userId && agentsLoaded && squads.length > 0,
+    staleTime: 60_000,
   });
+};
 
 export const squadDetailOptions = (wsId: string | null, squadId: string) =>
   queryOptions({

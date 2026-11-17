@@ -100,6 +100,8 @@ import {
   AgentTaskListSchema,
   AttachmentListSchema,
   AttachmentSchema,
+  BatchDeleteResponseSchema,
+  BatchUpdateResponseSchema,
   ChatMessageListSchema,
   CommentSchema,
   ChatPendingTaskSchema,
@@ -112,6 +114,8 @@ import {
   EMPTY_AGENT_LIST,
   EMPTY_AGENT_TASK_LIST,
   EMPTY_ATTACHMENT_LIST,
+  EMPTY_BATCH_DELETE_RESPONSE,
+  EMPTY_BATCH_UPDATE_RESPONSE,
   EMPTY_CHAT_MESSAGE_LIST,
   EMPTY_CHAT_PENDING_TASK,
   EMPTY_CHAT_SESSION_LIST,
@@ -173,16 +177,8 @@ import type { ZodType } from "zod";
 import { getCurrentSlug } from "./workspace-store";
 import { parseWithFallback } from "@/lib/parse-response";
 import { createRequestId } from "@/lib/request-id";
+import { getApiBaseUrl } from "@/lib/runtime-config";
 import { buildCommentUpdateBody } from "./revision";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-if (!API_URL) {
-  throw new Error(
-    "EXPO_PUBLIC_API_URL is not set. Add it to the apps/mobile env file for " +
-      "the variant you are running (see apps/mobile/README.md).",
-  );
-}
 
 export interface LoginResponse {
   token: string;
@@ -264,6 +260,13 @@ class ApiClient {
     path: string,
     init: FetchOptions = {},
   ): Promise<T> {
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
+      throw new ApiError(
+        "No backend URL is configured. Choose a server before signing in.",
+        0,
+      );
+    }
     const { timeoutMs = FETCH_TIMEOUT_MS, ...requestInit } = init;
     const rid = createRequestId();
     const start = Date.now();
@@ -313,7 +316,7 @@ class ApiClient {
 
     let res: Response;
     try {
-      res = await fetch(`${API_URL}${path}`, {
+      res = await fetch(`${apiBaseUrl}${path}`, {
         ...requestInit,
         signal: controller.signal,
         headers,
@@ -1328,6 +1331,35 @@ class ApiClient {
     await this.fetch<void>(`/api/issues/${id}`, { method: "DELETE" });
   }
 
+  async batchUpdateIssues(
+    issueIds: string[],
+    updates: UpdateIssueRequest,
+  ): Promise<{ updated: number }> {
+    return this.fetchValidatedWith(
+      "/api/issues/batch-update",
+      BatchUpdateResponseSchema,
+      EMPTY_BATCH_UPDATE_RESPONSE,
+      {
+        method: "POST",
+        body: JSON.stringify({ issue_ids: issueIds, updates }),
+      },
+      { endpoint: "batchUpdateIssues" },
+    );
+  }
+
+  async batchDeleteIssues(issueIds: string[]): Promise<{ deleted: number }> {
+    return this.fetchValidatedWith(
+      "/api/issues/batch-delete",
+      BatchDeleteResponseSchema,
+      EMPTY_BATCH_DELETE_RESPONSE,
+      {
+        method: "POST",
+        body: JSON.stringify({ issue_ids: issueIds }),
+      },
+      { endpoint: "batchDeleteIssues" },
+    );
+  }
+
   // --- Labels ---
   async listLabels(opts?: {
     signal?: AbortSignal;
@@ -1800,7 +1832,14 @@ class ApiClient {
 
     console.log(`[api] → POST ${path}`, { rid, filename: asset.name });
 
-    const res = await fetch(`${API_URL}${path}`, {
+    const apiBaseUrl = getApiBaseUrl();
+    if (!apiBaseUrl) {
+      throw new ApiError(
+        "No backend URL is configured. Choose a server before uploading.",
+        0,
+      );
+    }
+    const res = await fetch(`${apiBaseUrl}${path}`, {
       method: "POST",
       headers,
       body: formData,

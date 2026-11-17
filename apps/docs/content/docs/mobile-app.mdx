@@ -77,9 +77,11 @@ pnpm ios:mobile:device:prod:release
 
 ## Connecting to a self-hosted instance
 
-Release builds bake the API address into the app. `apps/mobile/.env.production` is committed with the public multica.ai defaults, so a fresh clone builds against production as-is.
+Release builds bake the API address in as an initial default. `apps/mobile/.env.production` is committed with the public multica.ai defaults, so a fresh clone opens on Cloud as-is. The same installed app can switch to a self-hosted backend before signing in.
 
-To connect to a self-hosted instance:
+On the sign-in screen, tap **Change server**, enter the `https` API address (and optionally a separate web address), confirm that data is not migrated, and save. The app checks `/api/config`, clears any previous session, and returns to sign-in. The choice persists across restarts. Plain `http` is accepted only in development builds.
+
+To bake a different initial default for fresh installs:
 
 <Steps>
 <Step>
@@ -90,7 +92,7 @@ EXPO_PUBLIC_API_URL=https://api.example.com
 EXPO_PUBLIC_WEB_URL=https://app.example.com
 ```
 
-The `.local` file overrides the committed defaults key by key and is gitignored, so personal endpoints never reach the repository. `EXPO_PUBLIC_API_URL` is required. `EXPO_PUBLIC_WEB_URL` powers entries like "Copy link" and "Open on web". Set both: a key you leave out falls back to the multica.ai default, so those entries would open multica.ai instead of your instance.
+The `.local` file overrides the committed defaults key by key and is gitignored, so personal endpoints never reach the repository. `EXPO_PUBLIC_API_URL` is required. `EXPO_PUBLIC_WEB_URL` powers entries like "Copy link" and "Open on web". If you leave the web address empty, the app uses the API address's origin. These values only seed a fresh install; users can still switch at runtime.
 </Step>
 <Step>
 Re-run the build command `pnpm ios:mobile:device:prod:release`. The iPhone must be able to reach the API address; when using a LAN address, don't write `localhost`, which on the iPhone points at the phone itself.

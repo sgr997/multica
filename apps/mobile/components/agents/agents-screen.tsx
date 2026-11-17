@@ -34,8 +34,14 @@ import { Header } from "@/components/ui/header";
 import { IconButton } from "@/components/ui/icon-button";
 import { TextField } from "@/components/ui/text-field";
 import { AgentRow, agentRuntimeLabel } from "@/components/agents/agent-row";
+import { AgentsSegment } from "@/components/agents/agents-segment";
+import { SquadsListBody } from "@/components/squads/squads-list-body";
 import { agentListOptions } from "@/data/queries/agents";
 import { runtimeListOptions } from "@/data/queries/runtimes";
+import {
+  useAgentsTabStore,
+  type AgentsTabSegment,
+} from "@/data/stores/agents-tab-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useWorkspacePresenceMap } from "@/lib/use-agent-presence";
 import { groupAgents, type AgentSectionKey } from "@/lib/agent-list";
@@ -51,6 +57,9 @@ export function AgentsScreen() {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const { t } = useT("agents");
+  const { t: tSquads } = useT("squads");
+  const segment = useAgentsTabStore((s) => s.segment);
+  const setSegment = useAgentsTabStore((s) => s.setSegment);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -123,30 +132,71 @@ export function AgentsScreen() {
   return (
     <View className="flex-1 bg-background">
       <Header
-        title={t("navigation:tabs.agents")}
+        title={
+          segment === "squads" ? tSquads("tab.squads") : tSquads("tab.agents")
+        }
         right={
-          <>
+          segment === "squads" ? (
             <IconButton
-              name="search"
+              name="add"
               onPress={() => {
-                if (searchOpen) {
-                  setQuery("");
-                  setSearchOpen(false);
-                } else {
-                  setSearchOpen(true);
-                }
+                if (!wsSlug) return;
+                router.push({
+                  pathname: "/[workspace]/squad/new",
+                  params: { workspace: wsSlug },
+                });
               }}
-              accessibilityLabel={t("common:actions.search")}
+              accessibilityLabel={tSquads("list.new_squad")}
             />
-            <IconButton
-              name="ellipsis-horizontal-circle"
-              onPress={openFilter}
-              accessibilityLabel={t("list.filter_title")}
-            />
-          </>
+          ) : (
+            <>
+              <IconButton
+                name="add"
+                onPress={() => {
+                  if (!wsSlug) return;
+                  router.push({
+                    pathname: "/[workspace]/agent/new",
+                    params: { workspace: wsSlug },
+                  });
+                }}
+                accessibilityLabel={t("create.new_aria")}
+              />
+              <IconButton
+                name="search"
+                onPress={() => {
+                  if (searchOpen) {
+                    setQuery("");
+                    setSearchOpen(false);
+                  } else {
+                    setSearchOpen(true);
+                  }
+                }}
+                accessibilityLabel={t("common:actions.search")}
+              />
+              <IconButton
+                name="ellipsis-horizontal-circle"
+                onPress={openFilter}
+                accessibilityLabel={t("list.filter_title")}
+              />
+            </>
+          )
         }
       />
 
+      <View className="px-4 pb-2 pt-1" style={{ alignItems: "flex-start" }}>
+        <AgentsSegment
+          value={segment}
+          onChange={(next: AgentsTabSegment) => setSegment(next)}
+        />
+      </View>
+
+      {/* Both segments stay mounted and are hidden with `display` instead of
+          unmounting: switching segments must not reset the other list's
+          scroll position or in-flight refresh. */}
+      <View
+        className="flex-1"
+        style={{ display: segment === "agents" ? "flex" : "none" }}
+      >
       {searchOpen ? (
         <View className="flex-row items-center gap-2 border-b border-border px-4 py-2">
           <TextField
@@ -225,6 +275,14 @@ export function AgentsScreen() {
           )}
         />
       )}
+      </View>
+
+      <View
+        className="flex-1"
+        style={{ display: segment === "squads" ? "flex" : "none" }}
+      >
+        <SquadsListBody />
+      </View>
     </View>
   );
 }

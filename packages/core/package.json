@@ -42,6 +42,7 @@
     "./issue-workflows/mutations": "./issue-workflows/mutations.ts",
     "./issues": "./issues/index.ts",
     "./issues/use-issue-deletion": "./issues/use-issue-deletion.ts",
+    "./issues/deletion-permissions": "./issues/deletion-permissions.ts",
     "./issues/batch": "./issues/batch.ts",
     "./issues/read-state": "./issues/read-state.ts",
     "./issues/canonical-id": "./issues/canonical-id.ts",

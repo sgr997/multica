@@ -26,6 +26,7 @@ import {
 import { appConfigOptions } from "@/data/queries/billing";
 import { QUICK_EMOJIS } from "@/lib/quick-emojis";
 import { i18n, useT } from "@/lib/i18n";
+import { getWebBaseUrl } from "@/lib/runtime-config";
 
 const QUICK_ROW_SIZE = 5;
 
@@ -54,7 +55,7 @@ export function useCommentLongPress(
     const isRoot = !entry.parent_id;
     const resolved = !!entry.resolved_at;
     const hasContent = !!entry.content;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const webUrl = getWebBaseUrl();
     const canCopyLink = !!(webUrl && wsSlug && issueIdentifier);
     const reactions = (entry.reactions ?? []) as Reaction[];
 

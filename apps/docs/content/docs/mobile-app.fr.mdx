@@ -77,9 +77,11 @@ pnpm ios:mobile:device:prod:release
 
 ## Se connecter à une instance auto-hébergée
 
-Les builds Release intègrent l'adresse de l'API dans l'application. `apps/mobile/.env.production` est commité avec les valeurs publiques par défaut de multica.ai : un clone neuf compile donc directement la version de production.
+Les builds Release intègrent l'adresse de l'API comme valeur initiale. `apps/mobile/.env.production` est commité avec les valeurs publiques par défaut de multica.ai : un clone neuf se connecte donc directement à Cloud. La même application installée peut basculer vers une instance auto-hébergée avant la connexion.
 
-Pour vous connecter à une instance auto-hébergée :
+Sur l'écran de connexion, touchez **Changer de serveur**, saisissez l'adresse `https` de l'API (et éventuellement une adresse web distincte), confirmez que les données ne sont pas migrées, puis enregistrez. L'application vérifie `/api/config`, efface l'ancienne session et revient à la connexion. Le choix persiste après redémarrage. `http` n'est accepté que dans les builds de développement.
+
+Pour définir une autre valeur initiale sur les nouvelles installations :
 
 <Steps>
 <Step>
@@ -90,7 +92,7 @@ EXPO_PUBLIC_API_URL=https://api.example.com
 EXPO_PUBLIC_WEB_URL=https://app.example.com
 ```
 
-Le fichier `.local` remplace les valeurs commitées clé par clé et est ignoré par git : vos adresses personnelles n'arrivent jamais dans le dépôt. `EXPO_PUBLIC_API_URL` est obligatoire. `EXPO_PUBLIC_WEB_URL` alimente des entrées comme « Copy link » et « Open on web ». Définissez les deux : une clé omise reprend la valeur par défaut de multica.ai, et ces entrées ouvriraient alors multica.ai au lieu de votre instance.
+Le fichier `.local` remplace les valeurs commitées clé par clé et est ignoré par git : vos adresses personnelles n'arrivent jamais dans le dépôt. `EXPO_PUBLIC_API_URL` est obligatoire. `EXPO_PUBLIC_WEB_URL` alimente des entrées comme « Copy link » et « Open on web » ; si elle est vide, l'origine de l'API est utilisée. Ces valeurs ne définissent que l'adresse initiale d'une nouvelle installation ; l'utilisateur peut toujours changer ensuite.
 </Step>
 <Step>
 Relancez la commande de compilation `pnpm ios:mobile:device:prod:release`. L'iPhone doit pouvoir joindre l'adresse de l'API ; si vous utilisez une adresse du réseau local, n'écrivez pas `localhost`, qui désigne sur l'iPhone le téléphone lui-même.

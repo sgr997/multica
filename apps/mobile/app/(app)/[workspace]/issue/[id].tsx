@@ -52,6 +52,7 @@ import { canEditIssue } from "@/lib/issue-permissions";
 import { shouldShowInboxCompleteButton } from "@/lib/inbox-complete";
 import { useInboxToastStore } from "@/data/inbox-toast-store";
 import { useT } from "@/lib/i18n";
+import { getWebBaseUrl } from "@/lib/runtime-config";
 
 export default function IssueDetail() {
   // `highlight` + `h` come from inbox deep-link (apps/mobile/app/(app)/
@@ -141,7 +142,7 @@ export default function IssueDetail() {
   // the timeline list, not in this menu — one entry per action.
   const onPressMore = useCallback(() => {
     if (!issue || !wsSlug) return;
-    const webUrl = process.env.EXPO_PUBLIC_WEB_URL;
+    const webUrl = getWebBaseUrl();
     const issueLink = webUrl
       ? `${webUrl}/${wsSlug}/issue/${issue.identifier}`
       : null;

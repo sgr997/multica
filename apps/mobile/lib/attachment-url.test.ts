@@ -1,9 +1,7 @@
 /**
- * Pure-function tests for the mobile attachment URL resolver. We exercise
- * the with-base form because `resolveAttachmentUrl` itself is bound at
- * module load to `process.env.EXPO_PUBLIC_API_URL`, which is what we
- * intentionally don't want to mutate in tests — the with-base helper is
- * the same code path with the API base passed in explicitly.
+ * Pure-function tests for the mobile attachment URL resolver. Most cases use
+ * the with-base form; the runtime-config cases below also verify that the
+ * bound form follows the currently selected backend.
  *
  * Coverage target: every branch the call sites in the app rely on —
  *   - `comment-attachment-list.tsx`         → file chip Linking.openURL
@@ -12,6 +10,7 @@
  *                                             tap → Linking.openURL
  */
 import { describe, expect, it } from "vitest";
+import { applyRuntimeConfig, resetRuntimeConfig } from "@/lib/runtime-config";
 import {
   resolveAttachmentUrl,
   resolveAttachmentUrlWithBase,
@@ -121,5 +120,19 @@ describe("resolveAttachmentUrl (env-bound)", () => {
     expect(resolveAttachmentUrl(undefined)).toBeNull();
     expect(resolveAttachmentUrl(null)).toBeNull();
     expect(resolveAttachmentUrl("")).toBeNull();
+  });
+
+  it("resolves relative paths against the newly selected backend", () => {
+    applyRuntimeConfig({
+      apiUrl: "https://selfhost.example.test",
+      webUrl: "https://selfhost.example.test",
+    });
+    try {
+      expect(resolveAttachmentUrl("/api/attachments/att-1/download")).toBe(
+        "https://selfhost.example.test/api/attachments/att-1/download",
+      );
+    } finally {
+      resetRuntimeConfig();
+    }
   });
 });

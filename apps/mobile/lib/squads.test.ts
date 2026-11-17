@@ -4,8 +4,12 @@ import type { AgentPresenceDetail } from "@multica/core/agents";
 import type { Squad, SquadMember } from "@multica/core/types";
 import {
   canManageSquad,
+  collectInvolvedSquadIds,
   diffSquadMembers,
   filterSquads,
+  hasCompleteMemberPreview,
+  isSquadInvolved,
+  squadsNeedingMemberLookup,
   summarizeSquadStatus,
 } from "./squads";
 
@@ -101,6 +105,110 @@ describe("filterSquads", () => {
         involvedIds: new Set(["a", "b"]),
       }),
     ).toEqual([]);
+  });
+});
+
+describe("squad involvement", () => {
+  const owned = new Set(["agent-owned"]);
+
+  it("treats an owned leader agent as involved without member rows", () => {
+    expect(
+      isSquadInvolved(
+        { leader_id: "agent-owned" },
+        [],
+        "user-1",
+        owned,
+      ),
+    ).toBe(true);
+  });
+
+  it("matches the caller as a human member", () => {
+    expect(
+      isSquadInvolved(
+        { leader_id: "agent-other" },
+        [member("member", "user-1")],
+        "user-1",
+        owned,
+      ),
+    ).toBe(true);
+  });
+
+  it("matches an owned agent as a member", () => {
+    expect(
+      isSquadInvolved(
+        { leader_id: "agent-other" },
+        [member("agent", "agent-owned")],
+        "user-1",
+        owned,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects squads with no relation to the caller", () => {
+    expect(
+      isSquadInvolved(
+        { leader_id: "agent-other" },
+        [member("member", "user-2"), member("agent", "agent-other")],
+        "user-1",
+        owned,
+      ),
+    ).toBe(false);
+    expect(
+      isSquadInvolved(
+        { leader_id: "agent-owned" },
+        [],
+        null,
+        owned,
+      ),
+    ).toBe(false);
+  });
+
+  it("collects ids across leader and membership branches", () => {
+    const squads = [
+      squad("leader", "Led", { leader_id: "agent-owned" }),
+      squad("human", "Human member"),
+      squad("agent-member", "Agent member"),
+      squad("unrelated", "Unrelated"),
+    ];
+    const membersBySquad = new Map([
+      ["human", [member("member", "user-1")]],
+      ["agent-member", [member("agent", "agent-owned")]],
+      ["unrelated", [member("member", "user-2")]],
+    ]);
+
+    expect(
+      collectInvolvedSquadIds(squads, membersBySquad, "user-1", owned),
+    ).toEqual(["leader", "human", "agent-member"]);
+  });
+
+  it("only skips member lookups when the preview is complete", () => {
+    const complete = squad("complete", "Complete", {
+      member_count: 2,
+      member_preview: [
+        { member_type: "member", member_id: "user-1", role: "" },
+        { member_type: "agent", member_id: "agent-1", role: "" },
+      ],
+    });
+    const truncated = squad("truncated", "Truncated", {
+      member_count: 4,
+      member_preview: [
+        { member_type: "member", member_id: "user-2", role: "" },
+      ],
+    });
+    const leaderOwned = squad("leader", "Led", {
+      leader_id: "agent-owned",
+      member_count: 9,
+      member_preview: [],
+    });
+
+    expect(hasCompleteMemberPreview(complete)).toBe(true);
+    expect(hasCompleteMemberPreview(truncated)).toBe(false);
+    expect(
+      squadsNeedingMemberLookup(
+        [complete, truncated, leaderOwned],
+        owned,
+      ).map((item) => item.id),
+    ).toEqual(["truncated"]);
   });
 });
 

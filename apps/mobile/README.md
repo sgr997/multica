@@ -149,9 +149,15 @@ A free Apple ID signs builds for **7 days only**, Debug and Release both. After 
 
 ## Pointing at a different backend
 
-Edit `EXPO_PUBLIC_API_URL` in `.env.staging`, `.env.production.local`, or `.env.development.local` (whichever variant you're running). Then:
+`EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_WEB_URL` are **initial defaults**, not the only backend an installed app can use. On the sign-in screen, tap **Change server** to enter another `https` API address before signing in. The app probes `/api/config`, persists the choice in SecureStore, clears any previous auth/query/workspace state, and returns to sign-in. The same Release build can therefore connect to Cloud or a self-hosted instance after installation.
+
+The optional web address controls "Copy link" / "Open on web"; leave it empty to use the API address's origin. Plain `http` is accepted only in development builds, for a LAN backend.
+
+To change the default used by fresh installs, edit `EXPO_PUBLIC_API_URL` in `.env.staging`, `.env.production.local`, or `.env.development.local` (whichever variant you're running). Then:
 
 - For an installed **Debug build**: restart Metro (`pnpm dev:mobile:staging`) so the next JS bundle picks up the new value.
 - For an installed **Release build**: re-run the `ios:mobile:device:staging:release` command — the value is baked into the embedded bundle at build time.
+
+Existing installs keep their saved in-app selection. Use **Use built-in default** on the server screen to return to the build-time value.
 
 For local backend testing, use your Mac's LAN IP (`ipconfig getifaddr en0`), not `localhost`.
