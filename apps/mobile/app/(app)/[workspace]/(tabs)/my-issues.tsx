@@ -1,6 +1,7 @@
 /**
- * "My Issues" tab. Three scopes — assigned / created / agents — mirroring
- * web's `packages/views/my-issues/components/my-issues-page.tsx:48-65`. The
+ * "My Issues" tab. Three scopes — agents / assigned / created, agents first
+ * and selected by default — mirroring web's
+ * `packages/views/my-issues/components/my-issues-page.tsx:48-65`. The
  * `agents` scope label is "Agents and Squads" because the backend predicate
  * (`involves_user_id`, MUL-2397) surfaces both the user's owned agents and
  * squads they're involved in (member / leader / has an owned agent inside).
@@ -32,10 +33,10 @@ import {
   buildMyIssuesFilter,
   myIssueListOptions,
 } from "@/data/queries/my-issues";
-import type { MyIssuesScope } from "@/data/queries/issue-keys";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useMyIssuesViewStore } from "@/data/stores/my-issues-view-store";
+import { MY_ISSUES_SCOPES } from "@/lib/my-issues-scopes";
 import { useClearFiltersOnWorkspaceChange } from "@/lib/use-clear-filters-on-workspace-change";
 import { PRIORITY_LABEL } from "@/lib/issue-status";
 import { useT } from "@/lib/i18n";
@@ -45,14 +46,6 @@ import { filterIssues } from "@/lib/filter-issues";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { THEME } from "@/lib/theme";
-
-// Mobile pill row has tight width on SE3 (375pt). Three pills + Filter icon
-// must fit in 343pt usable space, so the agents scope renders "Agents" — the
-// full "Agents and Squads" label (~135pt) blows past safe limits and breaks
-// under Dynamic Type. Semantics unchanged: same backend predicate
-// (`involves_user_id`, MUL-2397) covers owned agents + related squads; the
-// empty state copy still says "agents or squads".
-const SCOPES: MyIssuesScope[] = ["assigned", "created", "agents"];
 
 export default function MyIssues() {
   const isFocused = useIsFocused();
@@ -104,7 +97,7 @@ export default function MyIssues() {
 
   const hasActiveFilters =
     statusFilters.length > 0 || priorityFilters.length > 0;
-  const scopeItems = SCOPES.map((value) => ({
+  const scopeItems = MY_ISSUES_SCOPES.map((value) => ({
     value,
     label: t(`tabs.${value}`),
   }));

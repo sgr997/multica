@@ -17,6 +17,7 @@
 import { create } from "zustand";
 import type { IssuePriority, IssueStatus } from "@multica/core/types";
 import type { MyIssuesScope } from "@/data/queries/issue-keys";
+import { DEFAULT_MY_ISSUES_SCOPE } from "@/lib/my-issues-scopes";
 
 interface MyIssuesViewState {
   scope: MyIssuesScope;
@@ -29,7 +30,7 @@ interface MyIssuesViewState {
 }
 
 export const useMyIssuesViewStore = create<MyIssuesViewState>((set) => ({
-  scope: "assigned",
+  scope: DEFAULT_MY_ISSUES_SCOPE,
   statusFilters: [],
   priorityFilters: [],
   setScope: (scope) => set({ scope }),
