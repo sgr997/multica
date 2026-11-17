@@ -3,14 +3,17 @@
  *
  * Agents deliberately live here only as the `person.2` tab in the bottom
  * bar — a duplicate entry under More would give the same feature two entry
- * points. The `/more/agents` route still exists as a redirect for old deep
- * links, but it is no longer a menu item.
+ * points. Squads share that tab as its second segment, but they do get a
+ * More entry: `/more/squads` redirects to the tab with the segment already
+ * switched, which gives squads a discoverable home without a bottom tab of
+ * their own.
  */
 
 export type MoreMenuLabelKey =
   | "more_menu.pinned"
   | "more_menu.issues"
-  | "more_menu.projects";
+  | "more_menu.projects"
+  | "more_menu.squads";
 
 export interface MoreMenuItem {
   labelKey: MoreMenuLabelKey;
@@ -27,5 +30,10 @@ export const MORE_MENU_ITEMS: readonly MoreMenuItem[] = [
     labelKey: "more_menu.projects",
     icon: "square.stack",
     path: "/more/projects",
+  },
+  {
+    labelKey: "more_menu.squads",
+    icon: "person.3",
+    path: "/more/squads",
   },
 ];

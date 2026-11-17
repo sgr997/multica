@@ -72,6 +72,18 @@ describe("bottom tab configuration", () => {
     expect(source).not.toContain("SectionList");
   });
 
+  it("routes the More squads entry through the deep-link redirect", () => {
+    expect(
+      MORE_MENU_ITEMS.some((item) => item.path === "/more/squads"),
+    ).toBe(true);
+    const source = fs.readFileSync(
+      path.join(__dirname, "../app/(app)/[workspace]/more/squads.tsx"),
+      "utf8",
+    );
+    expect(source).toContain('setSegment("squads")');
+    expect(source).toContain("/agents");
+  });
+
   it("has a tab label in every locale and no duplicate More label", () => {
     for (const locale of ["en", "zh-Hans", "zh-Hant"]) {
       const navigation = readNavigation(locale);

@@ -8,6 +8,7 @@ import issuesEn from "@/locales/en/issues.json";
 import navigationEn from "@/locales/en/navigation.json";
 import projectsEn from "@/locales/en/projects.json";
 import settingsEn from "@/locales/en/settings.json";
+import squadsEn from "@/locales/en/squads.json";
 import workspaceEn from "@/locales/en/workspace.json";
 import agentsZh from "@/locales/zh-Hans/agents.json";
 import authZh from "@/locales/zh-Hans/auth.json";
@@ -19,6 +20,7 @@ import issuesZh from "@/locales/zh-Hans/issues.json";
 import navigationZh from "@/locales/zh-Hans/navigation.json";
 import projectsZh from "@/locales/zh-Hans/projects.json";
 import settingsZh from "@/locales/zh-Hans/settings.json";
+import squadsZh from "@/locales/zh-Hans/squads.json";
 import workspaceZh from "@/locales/zh-Hans/workspace.json";
 import agentsZhHant from "@/locales/zh-Hant/agents.json";
 import authZhHant from "@/locales/zh-Hant/auth.json";
@@ -30,6 +32,7 @@ import issuesZhHant from "@/locales/zh-Hant/issues.json";
 import navigationZhHant from "@/locales/zh-Hant/navigation.json";
 import projectsZhHant from "@/locales/zh-Hant/projects.json";
 import settingsZhHant from "@/locales/zh-Hant/settings.json";
+import squadsZhHant from "@/locales/zh-Hant/squads.json";
 import workspaceZhHant from "@/locales/zh-Hant/workspace.json";
 
 export const resources = {
@@ -44,6 +47,7 @@ export const resources = {
     navigation: navigationEn,
     projects: projectsEn,
     settings: settingsEn,
+    squads: squadsEn,
     workspace: workspaceEn,
   },
   "zh-Hans": {
@@ -57,6 +61,7 @@ export const resources = {
     navigation: navigationZh,
     projects: projectsZh,
     settings: settingsZh,
+    squads: squadsZh,
     workspace: workspaceZh,
   },
   "zh-Hant": {
@@ -70,6 +75,7 @@ export const resources = {
     navigation: navigationZhHant,
     projects: projectsZhHant,
     settings: settingsZhHant,
+    squads: squadsZhHant,
     workspace: workspaceZhHant,
   },
 } as const;

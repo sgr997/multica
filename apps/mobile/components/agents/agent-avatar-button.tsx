@@ -32,12 +32,14 @@ export function AgentAvatarButton({
   avatarUrl,
   size = 88,
   label,
+  actorType = "agent",
   onPicked,
 }: {
   name: string;
   avatarUrl: string | null;
   size?: number;
   label?: string;
+  actorType?: "agent" | "squad";
   onPicked: (url: string | null) => void;
 }) {
   const { t } = useT("agents");
@@ -138,7 +140,7 @@ export function AgentAvatarButton({
     <View className="items-center gap-2">
       <Pressable onPress={openActions} disabled={uploading}>
         <ActorAvatar
-          type="agent"
+          type={actorType}
           id={name || "new-agent"}
           name={name}
           avatarUrl={avatarUrl}

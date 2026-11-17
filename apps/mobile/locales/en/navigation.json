@@ -11,6 +11,7 @@
     "pinned": "Pinned",
     "issues": "Issues",
     "projects": "Projects",
+    "squads": "Squads",
     "account_settings": "Account settings"
   },
   "routes": {
@@ -25,6 +26,10 @@
     "assignee": "Assignee",
     "mention": "Mention",
     "agents": "Agents",
+    "squads": "Squads",
+    "squad": "Squad",
+    "new_squad": "New squad",
+    "edit_squad": "Edit squad",
     "pinned": "Pinned",
     "switch_workspace": "Switch workspace",
     "new_issue": "New issue",

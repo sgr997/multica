@@ -145,7 +145,7 @@ export function Markdown({
       //   mention://project/<uuid> → navigate to that project detail
       //   mention://member/<uuid>  → no-op (no member profile screen yet)
       //   mention://agent/<uuid>   → no-op (no agent profile screen yet)
-      //   mention://squad/<uuid>   → no-op (no squad profile screen yet)
+      //   mention://squad/<uuid>   → navigate to that squad detail
       //   mention://all/all        → no-op (semantic only — "everyone")
       //   anything malformed       → no-op
       if (url.startsWith("mention://")) {
@@ -160,6 +160,7 @@ export function Markdown({
           // the mapping explicit so a new type can't silently no-op.
           if (type === "issue") router.push(`/${wsSlug}/issue/${id}`);
           else if (type === "project") router.push(`/${wsSlug}/project/${id}`);
+          else if (type === "squad") router.push(`/${wsSlug}/squad/${id}`);
         }
         return;
       }

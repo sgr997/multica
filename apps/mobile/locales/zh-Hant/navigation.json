@@ -11,6 +11,7 @@
     "pinned": "已固定",
     "issues": "任務",
     "projects": "專案",
+    "squads": "小隊",
     "account_settings": "帳號設定"
   },
   "routes": {
@@ -25,6 +26,10 @@
     "assignee": "負責人",
     "mention": "提及",
     "agents": "AI 代理",
+    "squads": "小隊",
+    "squad": "小隊",
+    "new_squad": "新增小隊",
+    "edit_squad": "編輯小隊",
     "pinned": "已固定",
     "switch_workspace": "切換工作區",
     "new_issue": "新建任務",

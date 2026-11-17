@@ -12,11 +12,13 @@ import { useChatSessionsRealtime } from "@/data/realtime/use-chat-sessions-realt
 import { useProjectsRealtime } from "@/data/realtime/use-projects-realtime";
 import { usePinsRealtime } from "@/data/realtime/use-pins-realtime";
 import { usePresenceRealtime } from "@/data/realtime/use-presence-realtime";
+import { useSquadsRealtime } from "@/data/realtime/use-squads-realtime";
 import { useWorkspacePresencePrefetch } from "@/lib/use-workspace-presence-prefetch";
 import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { useNewIssueDraftResetOnWorkspaceChange } from "@/data/stores/new-issue-draft-store";
 import { useNewProjectDraftResetOnWorkspaceChange } from "@/data/stores/new-project-draft-store";
 import { useChatSessionPickerResetOnWorkspaceChange } from "@/data/stores/chat-session-picker-store";
+import { useNewSquadDraftResetOnWorkspaceChange } from "@/data/stores/new-squad-draft-store";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -80,6 +82,7 @@ function RealtimeSubscriptions() {
   useChatSessionsRealtime();
   useProjectsRealtime();
   usePinsRealtime();
+  useSquadsRealtime();
   // Presence: warm the three queries up front so avatars don't flash a
   // dotless first render, and listen for daemon/agent/task events to keep
   // the runtime + snapshot caches fresh. See use-presence-realtime.ts for
@@ -119,6 +122,7 @@ export default function WorkspaceLayout() {
   // session id, etc.) is invalid in workspace B and must not leak.
   useNewIssueDraftResetOnWorkspaceChange(matched?.id ?? null);
   useNewProjectDraftResetOnWorkspaceChange(matched?.id ?? null);
+  useNewSquadDraftResetOnWorkspaceChange(matched?.id ?? null);
   useChatSessionPickerResetOnWorkspaceChange(matched?.id ?? null);
 
   // Wait for the workspaces list before deciding membership — otherwise a
@@ -140,6 +144,10 @@ export default function WorkspaceLayout() {
             title: t("navigation:routes.issue"),
             headerBackTitle: t("back"),
           }}
+        />
+        <Stack.Screen
+          name="more/squads"
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="project/[id]"
@@ -322,6 +330,40 @@ export default function WorkspaceLayout() {
               headerBackTitle: t("back"),
             }}
         />
+        <Stack.Screen
+          name="squad/new"
+          options={{
+            title: t("navigation:routes.new_squad"),
+            presentation: "modal",
+            // Cancel owns the discard confirmation; a swipe must not bypass
+            // it and silently throw away a half-filled form.
+            gestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="squad/new-picker/leader"
+          options={SHEET_OPTIONS}
+        />
+        <Stack.Screen
+          name="squad/new-picker/members"
+          options={SHEET_OPTIONS}
+        />
+        <Stack.Screen
+          name="squad/[id]"
+          options={{
+            title: t("navigation:routes.squad"),
+            headerBackTitle: t("back"),
+          }}
+        />
+        <Stack.Screen
+          name="squad/[id]/edit"
+          options={{
+            title: t("navigation:routes.edit_squad"),
+            presentation: "modal",
+            headerLeft: () => <ModalCloseButton />,
+          }}
+        />
+        <Stack.Screen name="squad/[id]/add-member" options={SHEET_OPTIONS} />
         <Stack.Screen
           name="agent/new"
           options={{

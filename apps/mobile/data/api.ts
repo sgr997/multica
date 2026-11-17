@@ -54,6 +54,13 @@ import type {
   SendChatMessageResponse,
   SkillSummary,
   Squad,
+  AddSquadMemberRequest,
+  CreateSquadRequest,
+  RemoveSquadMemberRequest,
+  SquadMember,
+  SquadMemberStatusListResponse,
+  UpdateSquadMemberRoleRequest,
+  UpdateSquadRequest,
   NotificationPreferenceResponse,
   NotificationPreferences,
   TaskMessagePayload,
@@ -126,6 +133,10 @@ import {
   EMPTY_SKILL_LIST,
   EMPTY_SKILL_SEARCH_RESULTS,
   EMPTY_SQUAD_LIST,
+  EMPTY_SQUAD_MEMBER_LIST,
+  EMPTY_SQUAD_MEMBER_STATUS_LIST,
+  EMPTY_SQUAD,
+  InvolvedSquadIdsSchema,
   EMPTY_USER,
   EMPTY_WORKSPACE_LIST,
   InboxListSchema,
@@ -147,6 +158,10 @@ import {
   SkillSearchCandidateListSchema,
   SkillSummaryListSchema,
   SquadListSchema,
+  SquadMemberListSchema,
+  SquadMemberSchema,
+  SquadMemberStatusListSchema,
+  SquadSchema,
   TaskMessageListSchema,
   EMPTY_TASK_MESSAGE_LIST,
   UserSchema,
@@ -881,6 +896,138 @@ class ApiClient {
     return parseWithFallback(raw, SquadListSchema, EMPTY_SQUAD_LIST, {
       endpoint: "listSquads",
     });
+  }
+
+  async listInvolvedSquadIds(opts?: {
+    signal?: AbortSignal;
+  }): Promise<string[]> {
+    const raw = await this.fetch<unknown>("/api/squads/involved", {
+      signal: opts?.signal,
+    });
+    const parsed = parseWithFallback(
+      raw,
+      InvolvedSquadIdsSchema,
+      { squad_ids: [] },
+      { endpoint: "listInvolvedSquadIds" },
+    );
+    return parsed.squad_ids;
+  }
+
+  async getSquad(id: string, opts?: { signal?: AbortSignal }): Promise<Squad> {
+    return this.fetchValidated(
+      `/api/squads/${id}`,
+      SquadSchema,
+      EMPTY_SQUAD,
+      { signal: opts?.signal, endpoint: "getSquad" },
+    );
+  }
+
+  async createSquad(data: CreateSquadRequest): Promise<Squad> {
+    return this.fetchValidatedWith(
+      "/api/squads",
+      SquadSchema,
+      EMPTY_SQUAD,
+      { method: "POST", body: JSON.stringify(data) },
+      { endpoint: "createSquad" },
+    );
+  }
+
+  async updateSquad(id: string, data: UpdateSquadRequest): Promise<Squad> {
+    return this.fetchValidatedWith(
+      `/api/squads/${id}`,
+      SquadSchema,
+      EMPTY_SQUAD,
+      { method: "PUT", body: JSON.stringify(data) },
+      { endpoint: "updateSquad" },
+    );
+  }
+
+  async deleteSquad(id: string): Promise<void> {
+    await this.fetch(`/api/squads/${id}`, { method: "DELETE" });
+  }
+
+  async listSquadMembers(
+    squadId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<SquadMember[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/members`, {
+      signal: opts?.signal,
+    });
+    return parseWithFallback(
+      raw,
+      SquadMemberListSchema,
+      EMPTY_SQUAD_MEMBER_LIST,
+      { endpoint: "listSquadMembers" },
+    );
+  }
+
+  async listSquadMemberStatus(
+    squadId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<SquadMemberStatusListResponse> {
+    const raw = await this.fetch<unknown>(
+      `/api/squads/${squadId}/members/status`,
+      { signal: opts?.signal },
+    );
+    return parseWithFallback(
+      raw,
+      SquadMemberStatusListSchema,
+      EMPTY_SQUAD_MEMBER_STATUS_LIST,
+      { endpoint: "listSquadMemberStatus" },
+    );
+  }
+
+  async addSquadMember(
+    squadId: string,
+    data: AddSquadMemberRequest,
+  ): Promise<SquadMember> {
+    return this.fetchValidatedWith(
+      `/api/squads/${squadId}/members`,
+      SquadMemberSchema,
+      { id: "", squad_id: squadId, member_type: data.member_type, member_id: data.member_id, role: data.role ?? "", created_at: "" },
+      { method: "POST", body: JSON.stringify(data) },
+      { endpoint: "addSquadMember" },
+    );
+  }
+
+  async addSquadMembers(
+    squadId: string,
+    members: AddSquadMemberRequest[],
+  ): Promise<SquadMember[]> {
+    const added: SquadMember[] = [];
+    let firstError: unknown = null;
+    for (const member of members) {
+      try {
+        added.push(await this.addSquadMember(squadId, member));
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (firstError) throw firstError;
+    return added;
+  }
+
+  async removeSquadMember(
+    squadId: string,
+    data: RemoveSquadMemberRequest,
+  ): Promise<void> {
+    await this.fetch(`/api/squads/${squadId}/members`, {
+      method: "DELETE",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateSquadMemberRole(
+    squadId: string,
+    data: UpdateSquadMemberRoleRequest,
+  ): Promise<SquadMember> {
+    return this.fetchValidatedWith(
+      `/api/squads/${squadId}/members/role`,
+      SquadMemberSchema,
+      { id: "", squad_id: squadId, member_type: data.member_type, member_id: data.member_id, role: data.role, created_at: "" },
+      { method: "PATCH", body: JSON.stringify(data) },
+      { endpoint: "updateSquadMemberRole" },
+    );
   }
 
   // --- Issues ---

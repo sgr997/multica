@@ -43,6 +43,10 @@ import type {
   SendChatMessageResponse,
   SkillSummary,
   Squad,
+  SquadMember,
+  SquadMemberStatus,
+  SquadMemberStatusListResponse,
+  SquadMemberType,
   TaskMessagePayload,
   UpdateAgentRequest,
   User,
@@ -972,10 +976,16 @@ export const RuntimeSchema: z.ZodType<RuntimeDevice> = z.object({
 export const RuntimeListSchema = z.array(RuntimeSchema).default([]);
 export const EMPTY_RUNTIME_LIST: RuntimeDevice[] = [];
 
-// Squad schema — fields mobile actually consumes for the @mention suggestion
-// bar (id, name, archived_at filter) plus identity/timestamp fields that are
-// safe to default. `.loose()` so the server can add squad fields without
-// breaking the parser.
+// Squad schema — mirrors handler/squad.go SquadResponse. `member_count` and
+// `member_preview` are additive on list/detail responses; older backends omit
+// them, so both default cleanly instead of failing the whole parse (ZXP-14).
+// `.loose()` so the server can add squad fields without breaking the parser.
+const SquadMemberPreviewSchema = z.object({
+  member_type: z.string().default("agent"),
+  member_id: z.string().default(""),
+  role: z.string().default(""),
+}).loose();
+
 export const SquadSchema: z.ZodType<Squad> = z.object({
   id: z.string(),
   workspace_id: z.string().default(""),
@@ -989,10 +999,67 @@ export const SquadSchema: z.ZodType<Squad> = z.object({
   updated_at: z.string().default(""),
   archived_at: z.string().nullable().default(null),
   archived_by: z.string().nullable().default(null),
-}).loose();
+  member_count: z.number().default(0),
+  member_preview: z.array(SquadMemberPreviewSchema).default([]),
+}).loose() as unknown as z.ZodType<Squad>;
 
 export const SquadListSchema = z.array(SquadSchema).default([]);
 export const EMPTY_SQUAD_LIST: Squad[] = [];
+export const EMPTY_SQUAD: Squad = {
+  id: "",
+  workspace_id: "",
+  name: "",
+  description: "",
+  instructions: "",
+  avatar_url: null,
+  leader_id: "",
+  creator_id: "",
+  created_at: "",
+  updated_at: "",
+  archived_at: null,
+  archived_by: null,
+  member_count: 0,
+  member_preview: [],
+};
+
+export const SquadMemberSchema = z.object({
+  id: z.string(),
+  squad_id: z.string().default(""),
+  member_type: z.string().default("agent"),
+  member_id: z.string().default(""),
+  role: z.string().default(""),
+  created_at: z.string().default(""),
+}).loose() as unknown as z.ZodType<SquadMember>;
+
+export const SquadMemberListSchema = z.array(SquadMemberSchema).default([]);
+export const EMPTY_SQUAD_MEMBER_LIST: SquadMember[] = [];
+
+const SquadActiveIssueBriefSchema = z.object({
+  issue_id: z.string(),
+  identifier: z.string().default(""),
+  title: z.string().default(""),
+  issue_status: z.string().default(""),
+}).loose();
+
+const SquadMemberStatusSchema = z.object({
+  member_type: z.string().default("agent"),
+  member_id: z.string().default(""),
+  status: z.string().nullable().default(null),
+  active_issues: z.array(SquadActiveIssueBriefSchema).default([]),
+  last_active_at: z.string().nullable().default(null),
+}).loose() as unknown as z.ZodType<SquadMemberStatus>;
+
+export const SquadMemberStatusListSchema = z.object({
+  members: z.array(SquadMemberStatusSchema).default([]),
+}).loose() as unknown as z.ZodType<SquadMemberStatusListResponse>;
+
+export const EMPTY_SQUAD_MEMBER_STATUS_LIST: SquadMemberStatusListResponse = {
+  members: [],
+};
+
+export const InvolvedSquadIdsSchema = z.object({
+  squad_ids: z.array(z.string()).default([]),
+}).loose();
 
 // Single-issue fallback used by getIssue. Mobile reuses IssueSchema from core
 // for parsing; this sentinel lets parseWithFallback yield a structurally-
