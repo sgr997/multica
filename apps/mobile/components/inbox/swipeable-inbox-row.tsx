@@ -48,18 +48,11 @@ const ACTION_WIDTH = 80;
 
 interface Props {
   item: InboxItem;
-  /** Unread updates inside this conversation; 0 hides the badge. */
-  unreadCount: number;
   onPress: () => void;
   onArchive: () => void;
 }
 
-export function SwipeableInboxRow({
-  item,
-  unreadCount,
-  onPress,
-  onArchive,
-}: Props) {
+export function SwipeableInboxRow({ item, onPress, onArchive }: Props) {
   const ref = useRef<SwipeableMethods>(null);
 
   const fireArchive = () => {
@@ -78,7 +71,7 @@ export function SwipeableInboxRow({
         <ArchiveAction onPress={fireArchive} drag={drag} />
       )}
     >
-      <InboxRow item={item} unreadCount={unreadCount} onPress={onPress} />
+      <InboxRow item={item} onPress={onPress} />
     </ReanimatedSwipeable>
   );
 }

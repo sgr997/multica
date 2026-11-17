@@ -32,10 +32,8 @@ import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import {
-  countUnreadByGroup,
   deduplicateInboxItems,
   getInboxNavigationTarget,
-  inboxGroupKey,
 } from "@/lib/inbox-display";
 
 export default function Inbox() {
@@ -51,13 +49,6 @@ export default function Inbox() {
   // "Behavioral parity" → inbox dedup incident.
   const data = useMemo(
     () => deduplicateInboxItems(rawItems ?? []),
-    [rawItems],
-  );
-  // Unread badge per conversation, derived from the same cache the optimistic
-  // mutations patch — so a tap decrements the badge in the same frame, and
-  // archive / mark-all-read / swipe-archive all move it without a round trip.
-  const unreadByGroup = useMemo(
-    () => countUnreadByGroup(rawItems ?? []),
     [rawItems],
   );
   const markRead = useMarkInboxRead();
@@ -171,7 +162,6 @@ export default function Inbox() {
           renderItem={({ item }) => (
             <SwipeableInboxRow
               item={item}
-              unreadCount={unreadByGroup.get(inboxGroupKey(item)) ?? 0}
               onPress={() => onPressItem(item)}
               onArchive={() => archive.mutate(item.id)}
             />
