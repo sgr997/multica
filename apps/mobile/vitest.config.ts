@@ -32,6 +32,7 @@ export default defineConfig({
       "data/**/*.test.ts",
       "components/chat/*.test.ts",
       "components/issue/**/*.test.ts",
+      "components/inbox/inbox-row.test.tsx",
       "components/inbox/inbox-screen.test.ts",
     ],
     passWithNoTests: true,

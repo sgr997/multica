@@ -17,20 +17,32 @@ import { ActorAvatar } from "@/components/ui/actor-avatar";
 import { StatusIcon } from "@/components/ui/status-icon";
 import { InboxDetailLabel } from "@/components/inbox/detail-label";
 import { getInboxDisplayTitle } from "@/lib/inbox-display";
+import { useT } from "@/lib/i18n";
 import { useIssueStatuses } from "@/lib/use-issue-statuses";
 import { timeAgo } from "@/lib/time-ago";
 import { cn } from "@/lib/utils";
-import { useT } from "@/lib/i18n";
 
 interface Props {
   item: InboxItem;
-  /** Unread updates inside this conversation; 0 hides the badge. */
-  unreadCount?: number;
   onPress: () => void;
 }
 
-export function InboxRow({ item, unreadCount = 0, onPress }: Props) {
+/**
+ * Unread marker for an inbox row — an 8px brand dot, never a count.
+ *
+ * The row is one issue (newest notification after dedupe), not a group, so
+ * there is no per-row count to show. The bottom tab badge still carries the
+ * numeric total from `lib/unread-counts.ts`; this marker only answers
+ * "unread or not". Purely visual: the unread state is announced through the
+ * title's accessibility label, so screen readers still get it.
+ */
+export function UnreadDot() {
+  return <View className="size-2 rounded-full bg-brand shrink-0" />;
+}
+
+export function InboxRow({ item, onPress }: Props) {
   const isUnread = !item.read;
+  const { t } = useT("inbox");
   const { categoryOf, colorOf, iconOf } = useIssueStatuses();
   const displayTitle = getInboxDisplayTitle(item);
   const actorType = item.actor_type ?? item.recipient_type;
@@ -41,10 +53,10 @@ export function InboxRow({ item, unreadCount = 0, onPress }: Props) {
       <View className="flex-row gap-3">
         <ActorAvatar type={actorType} id={actorId} size={36} showPresence />
         <View className="flex-1 min-w-0">
-          {/* Top row: [unread badge + title] (left) | [status icon] (right) */}
+          {/* Top row: [unread dot + title] (left) | [status icon] (right) */}
           <View className="flex-row items-center gap-2">
             <View className="flex-row items-center gap-1.5 flex-1 min-w-0">
-              {unreadCount > 0 ? <UnreadCountBadge count={unreadCount} /> : null}
+              {isUnread ? <UnreadDot /> : null}
               <Text
                 className={cn(
                   "flex-1 text-sm",
@@ -52,6 +64,11 @@ export function InboxRow({ item, unreadCount = 0, onPress }: Props) {
                     ? "font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
+                accessibilityLabel={
+                  isUnread
+                    ? `${displayTitle}, ${t("filters.unread")}`
+                    : displayTitle
+                }
                 numberOfLines={1}
               >
                 {displayTitle}
@@ -101,28 +118,5 @@ export function InboxRow({ item, unreadCount = 0, onPress }: Props) {
         </View>
       </View>
     </Pressable>
-  );
-}
-
-/**
- * Numeric unread badge on the row.
- *
- * The tab badge answers "how many conversations are unread"; this answers
- * "how many updates landed in this one". It is derived from the inbox cache
- * (`countUnreadByGroup`), so the optimistic mark-read patch drops it in the
- * same frame as the tap — no round trip, and archiving (single, swipe or
- * batch) removes the row it belongs to.
- */
-function UnreadCountBadge({ count }: { count: number }) {
-  const { t } = useT("inbox");
-  return (
-    <View
-      accessibilityLabel={t("row.unread_count", { count })}
-      className="h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-brand px-1"
-    >
-      <Text className="text-[11px] font-semibold text-brand-foreground">
-        {count > 99 ? "99+" : String(count)}
-      </Text>
-    </View>
   );
 }
