@@ -32,7 +32,6 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -88,10 +87,6 @@ import {
 } from "@/lib/dispatch-reason";
 import { useT } from "@/lib/i18n";
 import { useAgentPresence } from "@/lib/use-agent-presence";
-import {
-  canSteerQueuedTask,
-  shouldPromptSendMode,
-} from "@/lib/chat-queue";
 import { Header } from "@/components/ui/header";
 import { Text } from "@/components/ui/text";
 import { ChatTitleButton } from "@/components/chat/chat-title-button";
@@ -356,65 +351,12 @@ export default function ChatTab() {
     [qc, t],
   );
 
-  /** Ask what a send should do while a turn is already running. Native
-   *  ActionSheet on iOS, 3-button Alert elsewhere. Returns null when the
-   *  user backs out, which the composer turns back into a restored draft. */
-  const promptSendMode = useCallback(
-    (): Promise<"queue" | "steer" | null> => {
-      const steerAvailable = canSteerQueuedTask(pendingTask?.status);
-      const message = steerAvailable
-        ? t("queue.mode_message")
-        : t("queue.steer_unavailable");
-      return new Promise((resolve) => {
-        if (Platform.OS === "ios") {
-          const options = steerAvailable
-            ? [t("queue.mode_queue"), t("queue.steer"), t("common:actions.cancel")]
-            : [t("queue.mode_queue"), t("common:actions.cancel")];
-          ActionSheetIOS.showActionSheetWithOptions(
-            {
-              options,
-              cancelButtonIndex: options.length - 1,
-              title: t("queue.mode_title"),
-              message,
-            },
-            (index) => {
-              if (index === 0) resolve("queue");
-              else if (steerAvailable && index === 1) resolve("steer");
-              else resolve(null);
-            },
-          );
-          return;
-        }
-        Alert.alert(
-          t("queue.mode_title"),
-          message,
-          [
-            {
-              text: t("common:actions.cancel"),
-              style: "cancel",
-              onPress: () => resolve(null),
-            },
-            { text: t("queue.mode_queue"), onPress: () => resolve("queue") },
-            ...(steerAvailable
-              ? [{ text: t("queue.steer"), onPress: () => resolve("steer" as const) }]
-              : []),
-          ],
-          { cancelable: true, onDismiss: () => resolve(null) },
-        );
-      });
-    },
-    [pendingTask?.status, t],
-  );
-
   const handleSend = useCallback(
     async (
       content: string,
       attachmentIds: string[] = [],
       options: {
         clearDraft?: boolean;
-        /** Explicit choice — queue rows and retry skip the prompt. */
-        mode?: "queue" | "steer";
-        promptMode?: boolean;
       } = {},
     ) => {
       if (!currentAgent) return;
@@ -435,25 +377,6 @@ export default function ChatTab() {
         );
         return;
       }
-
-      let mode = options.mode;
-      if (
-        !mode &&
-        options.promptMode !== false &&
-        shouldPromptSendMode({
-          isRunning: sending,
-          supportsQueue: pendingTask?.supports_queue,
-        })
-      ) {
-        const picked = await promptSendMode();
-        // Throw so the composer restores the draft instead of silently
-        // swallowing what the user typed.
-        if (!picked) throw new Error("send-cancelled");
-        mode = picked;
-      }
-      // The head at prompt time is the task a steer must interrupt. The
-      // prioritize response usually names it, but older servers omit it.
-      const previousHeadTaskId = pendingTask?.task_id;
 
       const isNewSession = !activeSessionId;
       setFailedSend(null);
@@ -532,12 +455,6 @@ export default function ChatTab() {
           supports_queue: result.supports_queue,
           queued: result.queued,
         });
-        // `queued === false` means the previous turn ended while the sheet
-        // was open: this message is already the active head, so there is
-        // nothing to prioritize.
-        if (mode === "steer" && result.queued !== false) {
-          await steerQueuedTask(sessionId, result.task_id, previousHeadTaskId);
-        }
         qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
         // This send just committed the new session's server-derived title.
         if (isNewSession) {
@@ -574,11 +491,6 @@ export default function ChatTab() {
       t,
       promoteNewDraft,
       clearDraft,
-      sending,
-      pendingTask?.supports_queue,
-      pendingTask?.task_id,
-      promptSendMode,
-      steerQueuedTask,
     ],
   );
 
@@ -785,9 +697,9 @@ export default function ChatTab() {
               onPress={() => {
                 const retry = visibleFailedSend;
                 setFailedSend(null);
-                void handleSend(retry.content, retry.attachmentIds, {
-                  promptMode: false,
-                }).catch(() => {});
+                void handleSend(retry.content, retry.attachmentIds).catch(
+                  () => {},
+                );
               }}
               hitSlop={8}
             >

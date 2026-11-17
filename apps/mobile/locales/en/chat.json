@@ -29,14 +29,10 @@
     "title_other": "{{count}} queued messages",
     "clear": "Clear all",
     "steer": "Steer",
-    "steer_unavailable": "Steer is available once the current reply starts",
     "steer_unavailable_toast": "This turn can no longer be steered.",
     "remove": "Remove queued message",
     "fallback": "Queued message",
-    "action_failed": "Couldn't update the queue. Try again.",
-    "mode_title": "Agent is running",
-    "mode_message": "Send now to queue it, or steer to interrupt the current turn.",
-    "mode_queue": "Queue message"
+    "action_failed": "Couldn't update the queue. Try again."
   },
   "empty": {
     "greeting": "Hi, I'm {{name}}",
