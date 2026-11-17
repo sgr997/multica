@@ -22,7 +22,8 @@ const PRIORITY_OPTIONS: IssuePriority[] = [
 ];
 
 interface Props {
-  value: IssuePriority;
+  /** null means the selection mixes priorities, so nothing is checked. */
+  value: IssuePriority | null;
   onChange: (next: IssuePriority) => void;
 }
 

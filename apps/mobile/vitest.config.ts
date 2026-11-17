@@ -31,7 +31,7 @@ export default defineConfig({
       "lib/**/*.test.ts",
       "data/**/*.test.ts",
       "components/chat/*.test.ts",
-      "components/issue/run-cancel-button.test.ts",
+      "components/issue/**/*.test.ts",
       "components/inbox/inbox-screen.test.ts",
     ],
     passWithNoTests: true,

@@ -30,7 +30,10 @@
  *     behavior — earlier whitelist (member/agent only) silently dropped
  *     squad assignees instead.
  */
+import { useRef } from "react";
 import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import type { Issue } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
@@ -39,21 +42,67 @@ import { StatusIcon } from "@/components/ui/status-icon";
 import { CustomStatusChip } from "@/components/issue/custom-status-chip";
 import { issueColumnCategory } from "@/lib/issue-status";
 import { useIssueStatuses } from "@/lib/use-issue-statuses";
+import { cn } from "@/lib/utils";
+import { useColorScheme } from "@/lib/use-color-scheme";
+import { THEME } from "@/lib/theme";
 
 interface Props {
   issue: Issue;
   onPress: () => void;
+  onLongPress?: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
   /** Render the status icon inline at the start of the row. Default: false. */
   showStatus?: boolean;
 }
 
-export function IssueRow({ issue, onPress, showStatus = false }: Props) {
+export function IssueRow({
+  issue,
+  onPress,
+  onLongPress,
+  selectionMode = false,
+  selected = false,
+  showStatus = false,
+}: Props) {
   // One catalog read for both the icon's colour and the chip — see the
   // divergence note in `custom-status-chip.tsx`.
   const catalog = useIssueStatuses();
+  const { colorScheme } = useColorScheme();
+  const lastLongPressAt = useRef(0);
+
   return (
-    <Pressable onPress={onPress} className="active:bg-secondary px-4 py-3">
+    <Pressable
+      onPress={() => {
+        if (Date.now() - lastLongPressAt.current < 500) return;
+        onPress();
+      }}
+      onLongPress={
+        onLongPress
+          ? () => {
+              lastLongPressAt.current = Date.now();
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              onLongPress();
+            }
+          : undefined
+      }
+      accessibilityState={{ selected }}
+      className={cn(
+        "active:bg-secondary px-4 py-3",
+        selected && "bg-accent/60",
+      )}
+    >
       <View className="flex-row items-center gap-3">
+        {selectionMode ? (
+          <Ionicons
+            name={selected ? "checkmark-circle" : "ellipse-outline"}
+            size={20}
+            color={
+              selected
+                ? THEME[colorScheme].primary
+                : THEME[colorScheme].mutedForeground
+            }
+          />
+        ) : null}
         {/* The glyph is per CATEGORY, so a custom status draws its category's
             icon rather than falling back to Todo's; the colour is what tells
             two statuses of one category apart. (MUL-6243) */}

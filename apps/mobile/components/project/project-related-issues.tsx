@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { StatusIcon } from "@/components/ui/status-icon";
 import { IssueRow } from "@/components/issue/issue-row";
 import { IssuesLoading } from "@/components/issue/issues-loading";
+import { useIssueBatchSelection } from "@/components/issue/use-issue-batch-selection";
 import { projectIssuesOptions } from "@/data/queries/projects";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { groupIssuesByStatus } from "@/lib/group-issues-by-status";
@@ -17,9 +18,10 @@ import { useT } from "@/lib/i18n";
 
 interface Props {
   projectId: string;
+  surface: string;
 }
 
-export function ProjectRelatedIssues({ projectId }: Props) {
+export function ProjectRelatedIssues({ projectId, surface }: Props) {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const { t } = useT("issues");
@@ -29,6 +31,7 @@ export function ProjectRelatedIssues({ projectId }: Props) {
 
   const catalog = useIssueStatuses();
   const sections = useMemo(() => groupIssuesByStatus(data ?? [], catalog.statuses), [data, catalog.statuses]);
+  const batch = useIssueBatchSelection(surface, data ?? []);
 
   const navigateToIssue = (id: string) => {
     if (wsSlug) router.push(`/${wsSlug}/issue/${id}`);
@@ -70,7 +73,14 @@ export function ProjectRelatedIssues({ projectId }: Props) {
               <IssueRow
                 key={issue.id}
                 issue={issue}
-                onPress={() => navigateToIssue(issue.id)}
+                selectionMode={batch.selecting}
+                selected={batch.selectedIds.has(issue.id)}
+                onLongPress={() => batch.startSelection(issue.id)}
+                onPress={() =>
+                  batch.selecting
+                    ? batch.toggle(issue.id)
+                    : navigateToIssue(issue.id)
+                }
               />
             ))}
           </View>

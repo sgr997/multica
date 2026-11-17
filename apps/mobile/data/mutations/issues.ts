@@ -727,6 +727,74 @@ export function useDeleteIssue() {
   });
 }
 
+/**
+ * Batch field updates. The request has no optimistic cache patch: the server
+ * applies per-issue guards and reports only a count, so a partial write cannot
+ * be reconciled locally. A successful write (even partial) invalidates the
+ * visible issue lists and details so the server response wins; a failed write
+ * leaves every cache untouched for retry.
+ */
+export function useBatchUpdateIssues() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationFn: ({
+      ids,
+      updates,
+    }: {
+      ids: string[];
+      updates: UpdateIssueRequest;
+    }) => api.batchUpdateIssues(ids, updates),
+    onSuccess: (_data, { ids }) => {
+      qc.invalidateQueries({ queryKey: issueKeys.myAll(wsId) });
+      qc.invalidateQueries({ queryKey: issueKeys.list(wsId) });
+      for (const id of ids) {
+        qc.invalidateQueries({ queryKey: issueKeys.detail(wsId, id) });
+      }
+    },
+  });
+}
+
+/**
+ * Batch delete. Remove the rows from every cached list immediately so the
+ * board and project list do not keep showing deleted issues while the refetch
+ * runs, then invalidate the same surfaces (including the inbox, whose rows and
+ * unread badge reference the deleted issues).
+ */
+export function useBatchDeleteIssues() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationFn: (ids: string[]) => api.batchDeleteIssues(ids),
+    onSuccess: async (_data, ids) => {
+      const deleted = new Set(ids);
+      const listKey = issueKeys.list(wsId);
+      const myAllKey = issueKeys.myAll(wsId);
+      await Promise.all([
+        qc.cancelQueries({ queryKey: listKey }),
+        qc.cancelQueries({ queryKey: myAllKey }),
+      ]);
+      qc.setQueriesData<Issue[]>({ queryKey: listKey }, (old) =>
+        old ? old.filter((issue) => !deleted.has(issue.id)) : old,
+      );
+      qc.setQueriesData<Issue[]>({ queryKey: myAllKey }, (old) =>
+        old ? old.filter((issue) => !deleted.has(issue.id)) : old,
+      );
+      for (const id of ids) {
+        qc.removeQueries({ queryKey: issueKeys.detail(wsId, id) });
+        qc.removeQueries({ queryKey: issueKeys.timeline(wsId, id) });
+        qc.removeQueries({ queryKey: issueKeys.activeTasks(wsId, id) });
+        qc.removeQueries({ queryKey: issueKeys.tasks(wsId, id) });
+      }
+      qc.invalidateQueries({ queryKey: listKey });
+      qc.invalidateQueries({ queryKey: myAllKey });
+      qc.invalidateQueries({ queryKey: inboxKeys.all(wsId) });
+    },
+  });
+}
+
 export function useCancelTask(issueId: string) {
   const qc = useQueryClient();
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);

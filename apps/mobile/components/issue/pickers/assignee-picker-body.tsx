@@ -44,6 +44,8 @@ export type AssigneeValue = {
 
 interface Props {
   value: AssigneeValue;
+  /** Mixed selection: no actor (including Unassigned) is checked. */
+  mixed?: boolean;
   query: string;
   onChange: (next: AssigneeValue) => void;
 }
@@ -64,7 +66,7 @@ function isRowSelected(value: AssigneeValue, row: Row): boolean {
   return value.type === "squad" && value.id === row.squad.id;
 }
 
-export function AssigneePickerBody({ value, query, onChange }: Props) {
+export function AssigneePickerBody({ value, mixed = false, query, onChange }: Props) {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const { t } = useT("issues");
   const { data: members = [] } = useQuery(memberListOptions(wsId));
@@ -123,7 +125,7 @@ export function AssigneePickerBody({ value, query, onChange }: Props) {
     ];
   }, [members, agents, squads, query, value]);
 
-  const isSelected = (row: Row) => isRowSelected(value, row);
+  const isSelected = (row: Row) => !mixed && isRowSelected(value, row);
 
   const select = (row: Row) => {
     if (row.kind === "unassigned") onChange(null);

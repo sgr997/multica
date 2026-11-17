@@ -26,9 +26,12 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/ui/header";
 import { HeaderActions } from "@/components/ui/app-header-actions";
+import { HeaderTextButton } from "@/components/ui/header-text-button";
 import { StatusIcon } from "@/components/ui/status-icon";
 import { IssueRow } from "@/components/issue/issue-row";
+import { IssueBatchToolbar } from "@/components/issue/issue-batch-toolbar";
 import { IssuesLoading } from "@/components/issue/issues-loading";
+import { useIssueBatchSelection } from "@/components/issue/use-issue-batch-selection";
 import {
   buildMyIssuesFilter,
   myIssueListOptions,
@@ -94,6 +97,11 @@ export default function MyIssues() {
   );
 
   const sections = useMemo(() => groupIssuesByStatus(filtered, catalog.statuses), [filtered, catalog.statuses]);
+  const batch = useIssueBatchSelection("my-issues", filtered);
+
+  const openIssue = (id: string) => {
+    if (wsSlug) router.push(`/${wsSlug}/issue/${id}`);
+  };
 
   const hasActiveFilters =
     statusFilters.length > 0 || priorityFilters.length > 0;
@@ -107,7 +115,25 @@ export default function MyIssues() {
 
   return (
     <View className="flex-1 bg-background">
-      <Header title={t("navigation:tabs.my_issues")} right={<HeaderActions />} />
+      {batch.selecting ? (
+        <Header
+          title={t("batch.selected", { count: batch.count })}
+          left={
+            <HeaderTextButton
+              label={t("batch.cancel")}
+              onPress={batch.clear}
+            />
+          }
+          right={
+            <HeaderTextButton
+              label={t("batch.select_all")}
+              onPress={batch.selectAll}
+            />
+          }
+        />
+      ) : (
+        <Header title={t("navigation:tabs.my_issues")} right={<HeaderActions />} />
+      )}
       <ScopeToolbar
         scopes={scopeItems}
         scope={scope}
@@ -163,13 +189,16 @@ export default function MyIssues() {
               count={section.data.length}
             />
           )}
-          contentContainerClassName="pb-6"
+          contentContainerClassName="pb-24"
           renderItem={({ item }) => (
             <IssueRow
               issue={item}
-              onPress={() => {
-                if (wsSlug) router.push(`/${wsSlug}/issue/${item.id}`);
-              }}
+              selectionMode={batch.selecting}
+              selected={batch.selectedIds.has(item.id)}
+              onLongPress={() => batch.startSelection(item.id)}
+              onPress={() =>
+                batch.selecting ? batch.toggle(item.id) : openIssue(item.id)
+              }
             />
           )}
           refreshing={isFocused && refreshing}
@@ -177,6 +206,7 @@ export default function MyIssues() {
         />
       )}
 
+      <IssueBatchToolbar surface="my-issues" issues={filtered} />
     </View>
   );
 }

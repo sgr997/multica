@@ -25,11 +25,13 @@ type Row = { kind: "none" } | { kind: "project"; project: Project };
 
 interface Props {
   value: Project | null;
+  /** Mixed selection: neither "No project" nor a project is checked. */
+  mixed?: boolean;
   query: string;
   onChange: (next: Project | null) => void;
 }
 
-export function ProjectPickerBody({ value, query, onChange }: Props) {
+export function ProjectPickerBody({ value, mixed = false, query, onChange }: Props) {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const { t } = useT("issues");
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
@@ -63,6 +65,7 @@ export function ProjectPickerBody({ value, query, onChange }: Props) {
   }, [projects, query, value]);
 
   const isSelected = (row: Row) => {
+    if (mixed) return false;
     if (row.kind === "none") return value === null;
     return value !== null && row.project.id === value.id;
   };

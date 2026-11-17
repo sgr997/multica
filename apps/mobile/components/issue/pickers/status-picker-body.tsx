@@ -26,7 +26,8 @@ import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 
 interface Props {
-  value: IssueStatus;
+  /** null means the selection mixes statuses, so nothing is checked. */
+  value: IssueStatus | null;
   onChange: (next: IssueStatus) => void;
 }
 

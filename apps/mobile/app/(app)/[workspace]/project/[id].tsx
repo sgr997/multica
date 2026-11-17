@@ -29,12 +29,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { HeaderTextButton } from "@/components/ui/header-text-button";
 import { ProjectHeaderCard } from "@/components/project/project-header-card";
 import { ProjectPropertiesSection } from "@/components/project/project-properties-section";
 import { ProjectRelatedIssues } from "@/components/project/project-related-issues";
 import { ProjectResourcesSection } from "@/components/project/project-resources-section";
+import { IssueBatchToolbar } from "@/components/issue/issue-batch-toolbar";
+import { useIssueBatchSelection } from "@/components/issue/use-issue-batch-selection";
 import {
   projectDetailOptions,
+  projectIssuesOptions,
   projectResourcesOptions,
 } from "@/data/queries/projects";
 import { canDeleteProject } from "@multica/core/projects/deletion-permissions";
@@ -57,7 +61,10 @@ export default function ProjectDetail() {
   const qc = useQueryClient();
 
   const detail = useQuery(projectDetailOptions(wsId, id));
+  const projectIssues = useQuery(projectIssuesOptions(wsId, id));
   const deleteProject = useDeleteProject(id);
+  const surface = `project:${id}`;
+  const batch = useIssueBatchSelection(surface, projectIssues.data ?? []);
 
   // Per-record realtime — when another client deletes the project we're
   // viewing, pop back so the user isn't stranded on a 404.
@@ -171,19 +178,39 @@ export default function ProjectDetail() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["bottom"]}>
       <Stack.Screen
-        options={{
-          title: project?.title || t("navigation:routes.project"),
-          headerBackTitle: t("common:actions.back"),
-          headerRight: project
-            ? () => (
-                <IconButton
-                  name="ellipsis-horizontal"
-                  onPress={onPressMore}
-                  accessibilityLabel={t("menu.project_actions")}
-                />
-              )
-            : undefined,
-        }}
+        options={
+          batch.selecting
+            ? {
+                title: t("issues:batch.selected", { count: batch.count }),
+                headerBackTitle: t("common:actions.back"),
+                headerLeft: () => (
+                  <HeaderTextButton
+                    label={t("issues:batch.cancel")}
+                    onPress={batch.clear}
+                  />
+                ),
+                headerRight: () => (
+                  <HeaderTextButton
+                    label={t("issues:batch.select_all")}
+                    onPress={batch.selectAll}
+                  />
+                ),
+              }
+            : {
+                title: project?.title || t("navigation:routes.project"),
+                headerBackTitle: t("common:actions.back"),
+                headerLeft: undefined,
+                headerRight: project
+                  ? () => (
+                      <IconButton
+                        name="ellipsis-horizontal"
+                        onPress={onPressMore}
+                        accessibilityLabel={t("menu.project_actions")}
+                      />
+                    )
+                  : undefined,
+              }
+        }
       />
       {detail.isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -205,7 +232,7 @@ export default function ProjectDetail() {
         </View>
       ) : (
         <ScrollView
-          contentContainerClassName="pb-10"
+          contentContainerClassName="pb-32"
           refreshControl={
             <RefreshControl
               refreshing={refreshingManually}
@@ -255,9 +282,13 @@ export default function ProjectDetail() {
             }}
           />
           <View className="h-3" />
-          <ProjectRelatedIssues projectId={id} />
+          <ProjectRelatedIssues projectId={id} surface={surface} />
         </ScrollView>
       )}
+      <IssueBatchToolbar
+        surface={surface}
+        issues={projectIssues.data ?? []}
+      />
     </SafeAreaView>
   );
 }

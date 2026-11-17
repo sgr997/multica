@@ -1090,5 +1090,18 @@ export const EMPTY_ISSUE_FALLBACK: import("@multica/core/types").Issue = {
   updated_at: "",
 };
 
+// Batch issue writes only return how many rows the server accepted. Parsing
+// keeps a drifted response from being read as a complete success; the
+// fallback is 0, which the UI reports as a partial write.
+export const BatchUpdateResponseSchema = z.object({
+  updated: z.number().int().nonnegative(),
+});
+export const EMPTY_BATCH_UPDATE_RESPONSE = { updated: 0 };
+
+export const BatchDeleteResponseSchema = z.object({
+  deleted: z.number().int().nonnegative(),
+});
+export const EMPTY_BATCH_DELETE_RESPONSE = { deleted: 0 };
+
 // Helpers re-exported for ergonomic single-import at the call site.
 export type { Label, Project, ProjectResource };

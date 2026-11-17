@@ -26,6 +26,47 @@ describe("api.listAgents", () => {
   });
 });
 
+describe("batch issue endpoints", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("posts ids and updates to batch-update", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ updated: 1 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      api.batchUpdateIssues(["issue-1"], { priority: "high" }),
+    ).resolves.toEqual({ updated: 1 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/issues/batch-update",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          issue_ids: ["issue-1"],
+          updates: { priority: "high" },
+        }),
+      }),
+    );
+  });
+
+  it("posts ids to batch-delete", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ deleted: 2 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(api.batchDeleteIssues(["a", "b"])).resolves.toEqual({
+      deleted: 2,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/issues/batch-delete",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ issue_ids: ["a", "b"] }),
+      }),
+    );
+  });
+});
+
 describe("api.deleteComment", () => {
   const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
 

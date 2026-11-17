@@ -304,6 +304,37 @@ export default function WorkspaceLayout() {
         {/* Shared filter sheet for My Issues and the workspace Issues page —
             chooses the right view-store via `?scope=my|all` URL param. */}
         <Stack.Screen name="issues-filter" options={SHEET_OPTIONS} />
+        {/* Batch issue actions opened from the multi-select toolbar. These
+            reuse the same picker bodies as issue detail; the selected ids come
+            from the surface-keyed mobile selection store. */}
+        <Stack.Screen
+          name="batch-picker/status"
+          options={SHEET_OPTIONS}
+        />
+        <Stack.Screen
+          name="batch-picker/priority"
+          options={SHEET_OPTIONS}
+        />
+        <Stack.Screen
+          name="batch-picker/assignee"
+          options={{
+            ...SHEET_OPTIONS,
+            headerShown: true,
+            title: t("navigation:routes.assignee"),
+          }}
+        />
+        <Stack.Screen
+          name="batch-picker/project"
+          options={{
+            ...SHEET_OPTIONS,
+            headerShown: true,
+            title: t("navigation:routes.project"),
+          }}
+        />
+        <Stack.Screen
+          name="batch-picker/due-date"
+          options={SHEET_OPTIONS}
+        />
         {/* Chat session-switch sheet. */}
         <Stack.Screen name="chat-sessions" options={SHEET_OPTIONS} />
         {/* Workspace switcher — reached from the More popover's collapsed

@@ -23,7 +23,7 @@
 import { useMemo } from "react";
 import { Pressable, SectionList, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
+import { Stack, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type {
   IssuePriority,
@@ -31,13 +31,16 @@ import type {
 } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { HeaderTextButton } from "@/components/ui/header-text-button";
 // Header chrome (back + "Issues" title) comes from the parent Stack
 // (`apps/mobile/app/(app)/[workspace]/_layout.tsx:269`). The Filter
 // affordance now lives in <ScopeToolbar> below, matching web's
 // IssuesHeader pattern (scope + filter share a row).
 import { StatusIcon } from "@/components/ui/status-icon";
 import { IssueRow } from "@/components/issue/issue-row";
+import { IssueBatchToolbar } from "@/components/issue/issue-batch-toolbar";
 import { IssuesLoading } from "@/components/issue/issues-loading";
+import { useIssueBatchSelection } from "@/components/issue/use-issue-batch-selection";
 import { issueListOptions } from "@/data/queries/issues";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import {
@@ -114,6 +117,11 @@ export default function IssuesPage() {
   );
 
   const sections = useMemo(() => groupIssuesByStatus(filtered, catalog.statuses), [filtered, catalog.statuses]);
+  const batch = useIssueBatchSelection("all-issues", filtered);
+
+  const openIssue = (id: string) => {
+    if (wsSlug) router.push(`/${wsSlug}/issue/${id}`);
+  };
 
   const hasActiveFilters =
     statusFilters.length > 0 || priorityFilters.length > 0;
@@ -126,6 +134,31 @@ export default function IssuesPage() {
 
   return (
     <View className="flex-1 bg-background">
+      <Stack.Screen
+        options={
+          batch.selecting
+            ? {
+                title: t("batch.selected", { count: batch.count }),
+                headerLeft: () => (
+                  <HeaderTextButton
+                    label={t("batch.cancel")}
+                    onPress={batch.clear}
+                  />
+                ),
+                headerRight: () => (
+                  <HeaderTextButton
+                    label={t("batch.select_all")}
+                    onPress={batch.selectAll}
+                  />
+                ),
+              }
+            : {
+                title: t("navigation:routes.issues"),
+                headerLeft: undefined,
+                headerRight: undefined,
+              }
+        }
+      />
       <ScopeToolbar
         scopes={scopeItems}
         scope={scope}
@@ -181,19 +214,23 @@ export default function IssuesPage() {
               count={section.data.length}
             />
           )}
-          contentContainerClassName="pb-6"
+          contentContainerClassName="pb-24"
           renderItem={({ item }) => (
             <IssueRow
               issue={item}
-              onPress={() => {
-                if (wsSlug) router.push(`/${wsSlug}/issue/${item.id}`);
-              }}
+              selectionMode={batch.selecting}
+              selected={batch.selectedIds.has(item.id)}
+              onLongPress={() => batch.startSelection(item.id)}
+              onPress={() =>
+                batch.selecting ? batch.toggle(item.id) : openIssue(item.id)
+              }
             />
           )}
           refreshing={refreshing}
           onRefresh={onRefresh}
         />
       )}
+      <IssueBatchToolbar surface="all-issues" issues={filtered} />
     </View>
   );
 }
