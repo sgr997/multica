@@ -3,6 +3,7 @@ import {
   isAtBottomFromMetrics,
   recordedUserOffset,
   shouldRecoverFromUnintendedTop,
+  shouldRestoreOffsetDuringHeaderAction,
   shouldRestoreOffsetAfterResize,
   shouldRestoreOffsetOnRefocus,
   viewportChanged,
@@ -209,5 +210,64 @@ describe("shouldRestoreOffsetOnRefocus", () => {
 
   it("has nothing to restore for a list nobody scrolled", () => {
     expect(shouldRestoreOffsetOnRefocus({ savedOffset: 0 })).toBe(false);
+  });
+});
+
+describe("shouldRestoreOffsetDuringHeaderAction", () => {
+  const base = {
+    savedOffset: 1800,
+    userInteracting: false,
+    restoring: false,
+    guarding: true,
+  };
+
+  it("restores a partial unwind the snap detector would miss", () => {
+    // 120 px in one event: below UNINTENDED_TOP_JUMP_PX and not at zero, so
+    // shouldRecoverFromUnintendedTop ignores it.
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({ ...base, offsetY: 1680 }),
+    ).toBe(true);
+  });
+
+  it("restores an unwind that lands at the top", () => {
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({ ...base, offsetY: 0 }),
+    ).toBe(true);
+  });
+
+  it("ignores sub-pixel rounding", () => {
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({ ...base, offsetY: 1799 }),
+    ).toBe(false);
+  });
+
+  it("does nothing outside the header-action window", () => {
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({
+        ...base,
+        guarding: false,
+        offsetY: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("lets the reader's finger win", () => {
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({
+        ...base,
+        userInteracting: true,
+        offsetY: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not fight its own restore", () => {
+    expect(
+      shouldRestoreOffsetDuringHeaderAction({
+        ...base,
+        restoring: true,
+        offsetY: 0,
+      }),
+    ).toBe(false);
   });
 });

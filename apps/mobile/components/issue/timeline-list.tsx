@@ -47,12 +47,16 @@ import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import { hasActiveRun } from "@/lib/issue-active-run";
 import { useCommentSelectStore } from "@/data/comment-select-store";
-import { subscribeTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
+import {
+  subscribeTimelineOffsetGuard,
+  subscribeTimelineOffsetRestore,
+} from "@/lib/timeline-offset-restore";
 import { decideTimelineLanding } from "@/lib/timeline-landing";
 import {
   isAtBottomFromMetrics,
   recordedUserOffset,
   shouldRecoverFromUnintendedTop,
+  shouldRestoreOffsetDuringHeaderAction,
   shouldRestoreOffsetAfterResize,
   shouldRestoreOffsetOnRefocus,
   viewportChanged,
@@ -94,6 +98,11 @@ const AT_BOTTOM_SLACK_PX = 80;
  *  animation's re-attach (which is when the platform actually zeroes the
  *  offset). Each re-assert is idempotent. */
 const OFFSET_REASSERT_DELAYS_MS = [0, 120, 320] as const;
+
+/** How long a header action keeps the list in "any upward move is a reset"
+ *  mode. Covers the presentation, the user's choice, and the dismissal
+ *  animation; the reader's first drag ends it immediately. */
+const HEADER_ACTION_GUARD_MS = 4000;
 
 /** Sentinel id for the "New since last view" divider row injected into the
  *  FlatList data. Picked because it can never collide with a real comment
@@ -179,6 +188,9 @@ export function TimelineList({
   // a late re-apply.
   const gestureSeqRef = useRef(0);
   const restoreTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Wall-clock end of the "header action in flight" window. See
+  // HEADER_ACTION_GUARD_MS and shouldRestoreOffsetDuringHeaderAction.
+  const headerActionGuardUntilRef = useRef(0);
   const metricsRef = useRef({
     contentHeight: 0,
     offsetY: 0,
@@ -386,6 +398,25 @@ export function TimelineList({
         return;
       }
 
+      // A header action is in flight (an alert or action sheet is being
+      // presented or is still on screen). Any upward movement during that
+      // window is the platform re-anchoring the list, not the reader — and
+      // it must not be recorded, or the saved offset walks down to zero and
+      // every later restore becomes a no-op.
+      if (
+        shouldRestoreOffsetDuringHeaderAction({
+          savedOffset: userOffsetRef.current,
+          offsetY: contentOffset.y,
+          userInteracting: userDraggingRef.current,
+          restoring: restoringRef.current,
+          guarding: Date.now() < headerActionGuardUntilRef.current,
+        })
+      ) {
+        logOffset("recover-header-action", { previousOffsetY });
+        applySavedOffset();
+        return;
+      }
+
       userOffsetRef.current = recordedUserOffset(
         userOffsetRef.current,
         contentOffset.y,
@@ -530,6 +561,10 @@ export function TimelineList({
   useEffect(
     () =>
       subscribeTimelineOffsetRestore(() => {
+        // Extend the guard through the dismissal: the offset can still be
+        // unwound after the sheet's callback runs.
+        headerActionGuardUntilRef.current =
+          Date.now() + HEADER_ACTION_GUARD_MS;
         if (
           !shouldRestoreOffsetOnRefocus({
             savedOffset: userOffsetRef.current,
@@ -541,6 +576,21 @@ export function TimelineList({
         reapplyReaderOffset();
       }),
     [logOffset, reapplyReaderOffset],
+  );
+
+  // ── Offset guarded from the moment the header button is pressed ───────
+  //
+  // The sheet presentation resets the offset *before* its callback runs, and
+  // without this window that reset is recorded as the reader's position —
+  // which is why restoring afterwards had nothing left to restore.
+  useEffect(
+    () =>
+      subscribeTimelineOffsetGuard(() => {
+        headerActionGuardUntilRef.current =
+          Date.now() + HEADER_ACTION_GUARD_MS;
+        logOffset("header-action-guard-open");
+      }),
+    [logOffset],
   );
 
   const onJumpToNew = useCallback(() => {
@@ -815,6 +865,7 @@ export function TimelineList({
           // A drag cancels every pending re-assert: the reader's finger owns
           // the position from here on.
           gestureSeqRef.current += 1;
+          headerActionGuardUntilRef.current = 0;
           useCommentSelectStore.getState().clear();
         }}
         onMomentumScrollBegin={() => {

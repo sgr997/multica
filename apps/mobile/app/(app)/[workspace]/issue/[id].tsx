@@ -47,7 +47,10 @@ import { useViewedIssuesStore } from "@/data/viewed-issues-store";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
-import { requestTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
+import {
+  beginTimelineOffsetGuard,
+  requestTimelineOffsetRestore,
+} from "@/lib/timeline-offset-restore";
 import { canEditIssue } from "@/lib/issue-permissions";
 import { shouldShowInboxCompleteButton } from "@/lib/inbox-complete";
 import { useInboxToastStore } from "@/data/inbox-toast-store";
@@ -142,6 +145,10 @@ export default function IssueDetail() {
   // the timeline list, not in this menu — one entry per action.
   const onPressMore = useCallback(() => {
     if (!issue || !wsSlug) return;
+    // Presenting the sheet can unwind the timeline's offset before the sheet
+    // is even visible. Open the guard on press so that unwind is treated as a
+    // reset instead of the reader's new position.
+    beginTimelineOffsetGuard();
     const webUrl = getWebBaseUrl();
     const issueLink = webUrl
       ? `${webUrl}/${wsSlug}/issue/${issue.identifier}`
@@ -272,6 +279,7 @@ export default function IssueDetail() {
 
   const onPressComplete = useCallback(() => {
     if (complete.isPending) return;
+    beginTimelineOffsetGuard();
     // Presenting the confirm alert can detach the timeline's native list (the
     // same reason the "…" sheet restores explicitly). Doing it for both
     // dismissal paths keeps the header button free of a scroll side effect

@@ -16,6 +16,7 @@
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
+const guardListeners = new Set<Listener>();
 
 /** Tell the mounted timeline, if any, to re-apply the reader's offset. */
 export function requestTimelineOffsetRestore(): void {
@@ -28,5 +29,28 @@ export function subscribeTimelineOffsetRestore(
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
+  };
+}
+
+/**
+ * Open the "a header action is in flight" window before the presentation
+ * starts.
+ *
+ * `requestTimelineOffsetRestore` runs when the sheet is *gone*, which is too
+ * late to keep the reader from watching the list jump to the top while the
+ * presentation happens — and too late to stop that jump from being recorded
+ * as the reader's own position. Calling this on press lets the list treat
+ * every unrequested upward move until the window closes as a reset.
+ */
+export function beginTimelineOffsetGuard(): void {
+  for (const listener of guardListeners) listener();
+}
+
+export function subscribeTimelineOffsetGuard(
+  listener: Listener,
+): () => void {
+  guardListeners.add(listener);
+  return () => {
+    guardListeners.delete(listener);
   };
 }
