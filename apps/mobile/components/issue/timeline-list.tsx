@@ -1,8 +1,9 @@
 /**
  * Chronological issue timeline backed by FlashList.
- * Normal opens show the header; deep links start at the bottom and highlight a
- * target when its row is rendered. MVCP keeps the viewport stable as asynchronous
- * Markdown, images, and WebSocket patches change row heights.
+ * Normal opens show the header; comment deep links start at the bottom and
+ * highlight a target when its row is rendered, and an inbox open of a still-
+ * running issue starts at the newest row. MVCP keeps the viewport stable as
+ * asynchronous Markdown, images, and WebSocket patches change row heights.
  *
  * Avoid repeated scrollToEnd calls during content resizing: they can override
  * user scrolling. New replies use the explicit jump-to-new chip instead of
@@ -35,14 +36,19 @@ import { useLastViewedStore } from "@/data/stores/last-viewed-store";
 import { coalesceTimeline } from "@/lib/timeline-coalesce";
 import { buildTimelineRows, type TimelineRow } from "@/lib/timeline-thread";
 import { ImageSequenceProvider } from "@/lib/markdown/image-sequence";
-import { issueAttachmentsOptions } from "@/data/queries/issues";
+import {
+  issueActiveTasksOptions,
+  issueAttachmentsOptions,
+} from "@/data/queries/issues";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import type { ImageSequenceBlock } from "@multica/core/attachments/image-sequence";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
+import { hasActiveRun } from "@/lib/issue-active-run";
 import { useCommentSelectStore } from "@/data/comment-select-store";
 import { subscribeTimelineOffsetRestore } from "@/lib/timeline-offset-restore";
+import { decideTimelineLanding } from "@/lib/timeline-landing";
 import {
   isAtBottomFromMetrics,
   recordedUserOffset,
@@ -66,6 +72,9 @@ interface Props {
    *  `highlightCommentId` but a fresh nonce, which re-triggers the
    *  scroll-and-flash effect (without this, identical props short-circuit). */
   highlightNonce?: string;
+  /** Opened from an inbox row (`from=inbox`). A running issue then lands on
+   *  the newest row instead of the title card. See timeline-landing.ts. */
+  fromInbox?: boolean;
 }
 
 /** How long the flash stays "claimed" before we let a new highlight take
@@ -93,6 +102,7 @@ export function TimelineList({
   onRefresh,
   highlightCommentId,
   highlightNonce,
+  fromInbox,
 }: Props) {
   // Top-level selection subscription gates the outer "tap-outside-to-dismiss"
   // Pressable below. When null, the Pressable stays disabled and every tap
@@ -120,6 +130,13 @@ export function TimelineList({
   const { data: issueAttachments } = useQuery(
     issueAttachmentsOptions(wsId, issue.id),
   );
+  // Same query the header badge subscribes to, so both surfaces agree on
+  // whether anything is still running. WS task events patch this cache.
+  const { data: activeTasks } = useQuery(
+    issueActiveTasksOptions(wsId, issue.id),
+  );
+  const activeRunKnown = activeTasks !== undefined;
+  const activeRun = hasActiveRun(activeTasks);
   const imageBlocks = useMemo<ImageSequenceBlock[]>(() => {
     const blocks: ImageSequenceBlock[] = [
       { content: issue.description, attachments: issueAttachments },
@@ -165,7 +182,14 @@ export function TimelineList({
   // rendering is a property of the FIRST paint; keeping it on for the whole
   // screen lifetime made every later viewport change re-anchor the list and
   // permanently disabled the resize guard below.
-  const [landingPending, setLandingPending] = useState(!!highlightCommentId);
+  //
+  // A running issue opened from the inbox qualifies too: `startRenderingFromBottom`
+  // is what makes the first frame bottom-anchored before the timeline query
+  // returns. When the active-task query is still cold the effect below
+  // performs the one late landing instead.
+  const [landingPending, setLandingPending] = useState(
+    () => !!highlightCommentId || (!!fromInbox && activeRunKnown && activeRun),
+  );
 
   useEffect(() => {
     return () => {
@@ -632,6 +656,61 @@ export function TimelineList({
     return () => cancelAnimationFrame(frame);
   }, [highlightCommentId, highlightNonce, dataWithDivider.length]);
 
+  // Inbox → still-running issue: land on the newest row once.
+  //
+  // The first frame may not have the active-task answer yet (cold query), so
+  // latch only the FIRST resolved answer. A run that starts later — after the
+  // reader is already here — must not yank the list, and a run that ends
+  // during the open must not trigger a second landing.
+  const inboxLandedRef = useRef(false);
+  const userScrolledRef = useRef(false);
+  const firstRunResultRef = useRef<boolean | null>(
+    activeRunKnown ? activeRun : null,
+  );
+  useEffect(() => {
+    if (firstRunResultRef.current === null && activeRunKnown) {
+      firstRunResultRef.current = activeRun;
+    }
+  }, [activeRunKnown, activeRun]);
+
+  useEffect(() => {
+    const firstRunResult = firstRunResultRef.current;
+    if (firstRunResult === null) return;
+    const decision = decideTimelineLanding({
+      fromInbox: !!fromInbox,
+      hasActiveRun: firstRunResult,
+      hasHighlight: !!highlightCommentId,
+      userHasScrolled: userScrolledRef.current,
+      alreadyLanded: inboxLandedRef.current,
+    });
+    if (decision !== "land-at-bottom") {
+      // The bottom-anchored first paint is only an optimisation for the
+      // landing above. Once that landing is cancelled it must not keep
+      // re-anchoring later viewport changes.
+      if (landingPending && !highlightCommentId) {
+        const frame = requestAnimationFrame(() => setLandingPending(false));
+        return () => cancelAnimationFrame(frame);
+      }
+      return;
+    }
+    if (dataWithDivider.length === 0) return;
+    inboxLandedRef.current = true;
+    const frame = requestAnimationFrame(() => {
+      markRestoring();
+      listRef.current?.scrollToEnd({ animated: false });
+      setLandingPending(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    activeRunKnown,
+    activeRun,
+    dataWithDivider.length,
+    fromInbox,
+    highlightCommentId,
+    landingPending,
+    markRestoring,
+  ]);
+
   return (
     <ImageSequenceProvider blocks={imageBlocks}>
     <View className="flex-1">
@@ -711,10 +790,12 @@ export function TimelineList({
         // the offset guard knows a 0-offset report is the reader's own doing.
         onScrollBeginDrag={() => {
           userDraggingRef.current = true;
+          userScrolledRef.current = true;
           useCommentSelectStore.getState().clear();
         }}
         onMomentumScrollBegin={() => {
           userDraggingRef.current = true;
+          userScrolledRef.current = true;
           useCommentSelectStore.getState().clear();
         }}
         onScrollEndDrag={() => {

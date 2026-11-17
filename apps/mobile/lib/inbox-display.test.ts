@@ -105,7 +105,12 @@ describe("getInboxNavigationTarget", () => {
       getInboxNavigationTarget(item({}), "acme", "history-1"),
     ).toMatchObject({
       pathname: "/[workspace]/issue/[id]",
-      params: { workspace: "acme", id: "issue-1", h: "history-1" },
+      params: {
+        workspace: "acme",
+        id: "issue-1",
+        h: "history-1",
+        from: "inbox",
+      },
     });
     expect(
       getInboxNavigationTarget(

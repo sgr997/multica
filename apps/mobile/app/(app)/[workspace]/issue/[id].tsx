@@ -51,12 +51,20 @@ export default function IssueDetail() {
   // `highlight` + `h` come from inbox deep-link (apps/mobile/app/(app)/
   // [workspace]/(tabs)/inbox.tsx). `highlight` is the target comment id;
   // `h` is a per-tap nonce so re-tapping the same row re-fires the
-  // scroll-and-flash effect.
-  const { id, workspace: wsSlug, highlight, h } = useLocalSearchParams<{
+  // scroll-and-flash effect. `from=inbox` marks the entry point: a running
+  // issue then opens at the newest timeline row instead of the top.
+  const {
+    id,
+    workspace: wsSlug,
+    highlight,
+    h,
+    from,
+  } = useLocalSearchParams<{
     id: string;
     workspace: string;
     highlight?: string;
     h?: string;
+    from?: string;
   }>();
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const qc = useQueryClient();
@@ -256,6 +264,7 @@ export default function IssueDetail() {
             onRefresh={onRefreshWithHaptics}
             highlightCommentId={highlight}
             highlightNonce={h}
+            fromInbox={from === "inbox"}
           />
           <InlineCommentComposer issueId={id} />
         </View>

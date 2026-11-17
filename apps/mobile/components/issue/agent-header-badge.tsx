@@ -23,6 +23,7 @@ import { PulseDot } from "@/components/ui/pulse-dot";
 import { issueActiveTasksOptions } from "@/data/queries/issues";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useT } from "@/lib/i18n";
+import { hasActiveRun } from "@/lib/issue-active-run";
 import { runSurfaceRoute } from "@/lib/run-transcript";
 
 interface Props {
@@ -37,7 +38,7 @@ export function AgentHeaderBadge({ issueId }: Props) {
     issueActiveTasksOptions(wsId, issueId),
   );
 
-  if (active.length === 0) return null;
+  if (!hasActiveRun(active)) return null;
 
   const actors = active.map<StackActor>((t) => ({
     type: "agent",

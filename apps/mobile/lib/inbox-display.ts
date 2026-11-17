@@ -142,6 +142,9 @@ export function getInboxNavigationTarget(
         id: item.issue_id,
         highlight: item.details?.comment_id,
         h: historyToken,
+        // Marks this open as an inbox tap. The detail screen uses it to land
+        // on the newest row when the issue still has an active run.
+        from: "inbox",
       },
     };
   }
