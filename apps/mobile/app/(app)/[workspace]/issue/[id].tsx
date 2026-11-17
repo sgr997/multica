@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Pressable,
   View,
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
@@ -49,6 +50,7 @@ import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import {
   beginTimelineOffsetGuard,
+  requestTimelineScrollToTop,
   requestTimelineOffsetRestore,
 } from "@/lib/timeline-offset-restore";
 import { canEditIssue } from "@/lib/issue-permissions";
@@ -358,6 +360,24 @@ export default function IssueDetail() {
     () => ({
       title: issue?.identifier ?? t("navigation:routes.issue"),
       headerBackTitle: t("common:actions.back"),
+      // iOS's notch / status-bar tap-to-top is off on this list (its hit band
+      // also caught taps on the header row), so the identifier in the header
+      // becomes the aimed-at way back to the top. The native title is
+      // replaced, so match its 17 pt semibold weight.
+      headerTitle: issue
+        ? () => (
+            <Pressable
+              onPress={requestTimelineScrollToTop}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t("a11y.scroll_to_top")}
+            >
+              <Text className="text-[17px] font-semibold text-foreground">
+                {issue.identifier}
+              </Text>
+            </Pressable>
+          )
+        : undefined,
       headerRight: issue ? headerRight : undefined,
     }),
     [issue, t, headerRight],

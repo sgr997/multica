@@ -50,6 +50,7 @@ import { useCommentSelectStore } from "@/data/comment-select-store";
 import {
   subscribeTimelineOffsetGuard,
   subscribeTimelineOffsetRestore,
+  subscribeTimelineScrollToTop,
 } from "@/lib/timeline-offset-restore";
 import { decideTimelineLanding } from "@/lib/timeline-landing";
 import {
@@ -591,6 +592,25 @@ export function TimelineList({
         logOffset("header-action-guard-open");
       }),
     [logOffset],
+  );
+
+  // ── Explicit jump to top, from a control the reader aimed at ──────────
+  //
+  // `scrollsToTop` is disabled on this list (see the FlashList props), so
+  // this is the only way the top is reachable without dragging. Recording
+  // zero is correct here: the reader chose the top, so the offset guards
+  // must not treat it as a reset and drag them back.
+  useEffect(
+    () =>
+      subscribeTimelineScrollToTop(() => {
+        logOffset("scroll-to-top-request");
+        gestureSeqRef.current += 1;
+        headerActionGuardUntilRef.current = 0;
+        markRestoring();
+        userOffsetRef.current = 0;
+        listRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }),
+    [logOffset, markRestoring],
   );
 
   const onJumpToNew = useCallback(() => {

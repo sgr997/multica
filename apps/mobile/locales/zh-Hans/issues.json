@@ -317,6 +317,7 @@
   "jump_a11y_other": "跳到 {{count}} 条新消息",
   "a11y": {
     "agent_working": "智能体处理中 — 打开运行",
+    "scroll_to_top": "回到顶部",
     "remove_mention": "移除提及 {{name}}",
     "retry_upload": "重试上传 {{name}}",
     "open_file": "打开 {{name}}",

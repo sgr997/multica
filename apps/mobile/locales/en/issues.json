@@ -331,6 +331,7 @@
   "jump_a11y_other": "Jump to {{count}} new messages",
   "a11y": {
     "agent_working": "Agent working — open runs",
+    "scroll_to_top": "Scroll to top",
     "remove_mention": "Remove mention {{name}}",
     "retry_upload": "Retry upload of {{name}}",
     "open_file": "Open {{name}}",

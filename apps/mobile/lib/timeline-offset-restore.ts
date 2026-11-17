@@ -17,6 +17,7 @@ type Listener = () => void;
 
 const listeners = new Set<Listener>();
 const guardListeners = new Set<Listener>();
+const scrollToTopListeners = new Set<Listener>();
 
 /** Tell the mounted timeline, if any, to re-apply the reader's offset. */
 export function requestTimelineOffsetRestore(): void {
@@ -52,5 +53,27 @@ export function subscribeTimelineOffsetGuard(
   guardListeners.add(listener);
   return () => {
     guardListeners.delete(listener);
+  };
+}
+
+/**
+ * Explicit "take me back to the top" request, made by the reader.
+ *
+ * Distinct from the other two channels in purpose, not just plumbing: iOS's
+ * own notch/status-bar tap-to-top (`UIScrollView.scrollsToTop`) had to be
+ * turned off on this list because its hit band also swallowed taps on the
+ * navigation bar's title row. This is the deliberate replacement — it only
+ * ever fires from a control the reader aimed at.
+ */
+export function requestTimelineScrollToTop(): void {
+  for (const listener of scrollToTopListeners) listener();
+}
+
+export function subscribeTimelineScrollToTop(
+  listener: Listener,
+): () => void {
+  scrollToTopListeners.add(listener);
+  return () => {
+    scrollToTopListeners.delete(listener);
   };
 }
