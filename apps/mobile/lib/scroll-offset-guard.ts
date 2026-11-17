@@ -127,17 +127,18 @@ export function isAtBottomFromMetrics(
  * A sheet presented over the timeline (the runs list, the issue menu) can
  * detach the native list; on dismissal the scroll view may come back at
  * offset 0 even though the JS state — and therefore `savedOffset` — is
- * intact. The reader never asked to move, so put them back. Being at the
- * bottom is its own intent (stay at the newest row), and a list nobody
- * scrolled has nothing to restore.
+ * intact. The reader never asked to move, so put them back.
+ *
+ * A reader who was at the bottom is restored to the bottom rather than to a
+ * stale pixel offset (see the caller), so "at bottom" is not an exclusion:
+ * the same native detach that zeroes a mid-list offset also zeroes one that
+ * was pinned to the end, and that reader has the strongest reason to
+ * complain — they lose the newest row they were reading.
  */
 export function shouldRestoreOffsetOnRefocus({
   savedOffset,
-  atBottom,
 }: {
   savedOffset: number;
-  atBottom: boolean;
 }): boolean {
-  if (atBottom) return false;
-  return savedOffset > 0;
+  return savedOffset > 1;
 }

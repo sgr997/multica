@@ -200,20 +200,14 @@ describe("isAtBottomFromMetrics", () => {
 
 describe("shouldRestoreOffsetOnRefocus", () => {
   it("puts a mid-list reader back after a sheet is dismissed", () => {
-    expect(
-      shouldRestoreOffsetOnRefocus({ savedOffset: 900, atBottom: false }),
-    ).toBe(true);
+    expect(shouldRestoreOffsetOnRefocus({ savedOffset: 900 })).toBe(true);
   });
 
-  it("leaves a reader who was at the bottom there", () => {
-    expect(
-      shouldRestoreOffsetOnRefocus({ savedOffset: 900, atBottom: true }),
-    ).toBe(false);
+  it("restores a reader who was pinned to the end", () => {
+    expect(shouldRestoreOffsetOnRefocus({ savedOffset: 3200 })).toBe(true);
   });
 
   it("has nothing to restore for a list nobody scrolled", () => {
-    expect(
-      shouldRestoreOffsetOnRefocus({ savedOffset: 0, atBottom: false }),
-    ).toBe(false);
+    expect(shouldRestoreOffsetOnRefocus({ savedOffset: 0 })).toBe(false);
   });
 });

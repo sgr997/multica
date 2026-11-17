@@ -89,6 +89,12 @@ const HIGHLIGHT_HOLD_MS = 5000;
  *  the user is already about to see. */
 const AT_BOTTOM_SLACK_PX = 80;
 
+/** Re-assert the reader's offset across a presentation's settling window.
+ *  Frame 0 covers a synchronous reset, the later two cover the dismissal
+ *  animation's re-attach (which is when the platform actually zeroes the
+ *  offset). Each re-assert is idempotent. */
+const OFFSET_REASSERT_DELAYS_MS = [0, 120, 320] as const;
+
 /** Sentinel id for the "New since last view" divider row injected into the
  *  FlatList data. Picked because it can never collide with a real comment
  *  / activity uuid. */
@@ -168,6 +174,11 @@ export function TimelineList({
   // deliver the resulting scroll event.
   const restoringRef = useRef(false);
   const restoringFramesRef = useRef<number | null>(null);
+  // Bumped on every user drag. A restore sequence started by a header action
+  // aborts as soon as this changes, so the reader always wins a race against
+  // a late re-apply.
+  const gestureSeqRef = useRef(0);
+  const restoreTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const metricsRef = useRef({
     contentHeight: 0,
     offsetY: 0,
@@ -199,6 +210,8 @@ export function TimelineList({
       if (restoringFramesRef.current != null) {
         cancelAnimationFrame(restoringFramesRef.current);
       }
+      for (const timer of restoreTimersRef.current) clearTimeout(timer);
+      restoreTimersRef.current = [];
     };
   }, []);
 
@@ -278,6 +291,45 @@ export function TimelineList({
     markRestoring();
     listRef.current?.scrollToOffset({ offset: target, animated: false });
   }, [markRestoring]);
+
+  /**
+   * Put the reader back where they were after a native presentation
+   * (confirm alert, action sheet, sheet route) has taken the list away and
+   * possibly re-anchored it.
+   *
+   * Why a sequence instead of one call: the platform resets the offset when
+   * it detaches/reattaches the scroll view, and that reset is silent — no
+   * `onScroll` is guaranteed, and the exact moment is not observable. A
+   * single post-dismissal `scrollToOffset` (previously rAF+rAF, plus one
+   * blind 320 ms retry) could land before the re-anchor and be undone. So
+   * re-assert the same target a few times over the dismissal's settling
+   * window. Every re-assert is idempotent: applying the current offset is a
+   * no-op, so the list never visibly moves unless it was actually displaced.
+   *
+   * The reader always wins: any drag between the action and a later
+   * re-assert bumps `gestureSeqRef` and cancels the rest of the sequence.
+   */
+  const reapplyReaderOffset = useCallback(() => {
+    const target = userOffsetRef.current;
+    if (target <= 1) return;
+    const seq = gestureSeqRef.current;
+    const atBottom = isAtBottomRef.current;
+
+    for (const timer of restoreTimersRef.current) clearTimeout(timer);
+    restoreTimersRef.current = OFFSET_REASSERT_DELAYS_MS.map((delay) =>
+      setTimeout(() => {
+        if (gestureSeqRef.current !== seq) return;
+        if (userDraggingRef.current) return;
+        if (landingPending) return;
+        markRestoring();
+        if (atBottom) {
+          listRef.current?.scrollToEnd({ animated: false });
+        } else {
+          listRef.current?.scrollToOffset({ offset: target, animated: false });
+        }
+      }, delay),
+    );
+  }, [landingPending, markRestoring]);
 
   const logOffset = useCallback(
     (phase: string, extra: Record<string, unknown> = {}) => {
@@ -435,25 +487,13 @@ export function TimelineList({
     if (
       !shouldRestoreOffsetOnRefocus({
         savedOffset: userOffsetRef.current,
-        atBottom: isAtBottomRef.current,
       })
     ) {
       return;
     }
     logOffset("refocus-restore");
-    const target = userOffsetRef.current;
-    let second: number | null = null;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => {
-        markRestoring();
-        listRef.current?.scrollToOffset({ offset: target, animated: false });
-      });
-    });
-    return () => {
-      cancelAnimationFrame(first);
-      if (second != null) cancelAnimationFrame(second);
-    };
-  }, [isFocused, logOffset, markRestoring]);
+    reapplyReaderOffset();
+  }, [isFocused, logOffset, reapplyReaderOffset]);
 
   // ── Offset survives an ActionSheet ────────────────────────────────────
   //
@@ -470,22 +510,15 @@ export function TimelineList({
       if (
         !shouldRestoreOffsetOnRefocus({
           savedOffset: userOffsetRef.current,
-          atBottom: isAtBottomRef.current,
         })
       ) {
         return;
       }
       logOffset("appstate-restore", { previous });
-      const target = userOffsetRef.current;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          markRestoring();
-          listRef.current?.scrollToOffset({ offset: target, animated: false });
-        });
-      });
+      reapplyReaderOffset();
     });
     return () => sub.remove();
-  }, [logOffset, markRestoring]);
+  }, [logOffset, reapplyReaderOffset]);
 
   // ── Offset survives the header action sheet ───────────────────────────
   //
@@ -500,26 +533,14 @@ export function TimelineList({
         if (
           !shouldRestoreOffsetOnRefocus({
             savedOffset: userOffsetRef.current,
-            atBottom: isAtBottomRef.current,
           })
         ) {
           return;
         }
         logOffset("action-sheet-restore");
-        const target = userOffsetRef.current;
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            markRestoring();
-            listRef.current?.scrollToOffset({ offset: target, animated: false });
-          });
-        });
-        setTimeout(() => {
-          if (userDraggingRef.current) return;
-          markRestoring();
-          listRef.current?.scrollToOffset({ offset: target, animated: false });
-        }, 320);
+        reapplyReaderOffset();
       }),
-    [logOffset, markRestoring],
+    [logOffset, reapplyReaderOffset],
   );
 
   const onJumpToNew = useCallback(() => {
@@ -791,11 +812,15 @@ export function TimelineList({
         onScrollBeginDrag={() => {
           userDraggingRef.current = true;
           userScrolledRef.current = true;
+          // A drag cancels every pending re-assert: the reader's finger owns
+          // the position from here on.
+          gestureSeqRef.current += 1;
           useCommentSelectStore.getState().clear();
         }}
         onMomentumScrollBegin={() => {
           userDraggingRef.current = true;
           userScrolledRef.current = true;
+          gestureSeqRef.current += 1;
           useCommentSelectStore.getState().clear();
         }}
         onScrollEndDrag={() => {
