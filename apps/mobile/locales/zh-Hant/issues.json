@@ -315,6 +315,10 @@
   "header_filter": "篩選",
   "new_badge": "新",
   "jump_a11y_other": "跳到 {{count}} 條新訊息",
+  "jump_label_one": "{{count}} 條新訊息",
+  "jump_label_other": "{{count}} 條新訊息",
+  "jump_to_latest": "回到最新",
+  "jump_to_latest_a11y": "捲動到最新一則",
   "a11y": {
     "agent_working": "AI 代理處理中 — 開啟執行",
     "scroll_to_top": "回到頂部",

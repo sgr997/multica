@@ -315,6 +315,10 @@
   "header_filter": "筛选",
   "new_badge": "新",
   "jump_a11y_other": "跳到 {{count}} 条新消息",
+  "jump_label_one": "{{count}} 条新消息",
+  "jump_label_other": "{{count}} 条新消息",
+  "jump_to_latest": "回到最新",
+  "jump_to_latest_a11y": "滚动到最新一条",
   "a11y": {
     "agent_working": "智能体处理中 — 打开运行",
     "scroll_to_top": "回到顶部",

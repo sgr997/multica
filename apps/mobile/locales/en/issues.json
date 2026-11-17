@@ -328,6 +328,10 @@
   "header_filter": "Filter",
   "new_badge": "New",
   "jump_a11y_one": "Jump to {{count}} new message",
+  "jump_label_one": "{{count}} new message",
+  "jump_label_other": "{{count}} new messages",
+  "jump_to_latest": "Back to latest",
+  "jump_to_latest_a11y": "Scroll to the newest entry",
   "jump_a11y_other": "Jump to {{count}} new messages",
   "a11y": {
     "agent_working": "Agent working — open runs",

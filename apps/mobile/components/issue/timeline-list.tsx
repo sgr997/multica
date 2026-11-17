@@ -264,6 +264,10 @@ export function TimelineList({
   // content below the viewport. Tapping the chip scrolls to bottom and
   // clears the counter; reaching the bottom by hand also clears it.
   const [newCount, setNewCount] = useState(0);
+  // "Back to latest" affordance, same rule the chat list uses: visible while
+  // the reader is scrolled up into history, regardless of whether anything
+  // new arrived. The count badge inside it is a separate concern.
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   // Measured on every scroll / content-size pass; never assumed. `false`
   // until the list has a viewport means "unknown", which the restores below
   // treat conservatively (they only act on a saved offset).
@@ -376,6 +380,7 @@ export function TimelineList({
         metricsRef.current,
         AT_BOTTOM_SLACK_PX,
       );
+      setShowJumpToLatest(!isAtBottomRef.current);
       // Reaching the bottom clears the unread-new chip — same iMessage /
       // chat-app semantic: "I've caught up".
       if (!wasAtBottom && isAtBottomRef.current && newCount > 0) {
@@ -616,6 +621,7 @@ export function TimelineList({
   const onJumpToNew = useCallback(() => {
     listRef.current?.scrollToEnd({ animated: true });
     setNewCount(0);
+    setShowJumpToLatest(false);
   }, []);
 
   // ── Inject divider as a sentinel row before its anchor entry ──────────
@@ -918,8 +924,8 @@ export function TimelineList({
         contentContainerStyle={{ paddingBottom: 16 }}
       />
       </Pressable>
-      {newCount > 0 ? (
-        <NewCommentChip count={newCount} onPress={onJumpToNew} />
+      {showJumpToLatest || newCount > 0 ? (
+        <JumpToLatestChip count={newCount} onPress={onJumpToNew} />
       ) : null}
     </View>
     </ImageSequenceProvider>
@@ -956,17 +962,20 @@ function UnreadDivider() {
 }
 
 /**
- * Floating "↓ N new" chip pinned above the composer area. Surfaces WS
- * arrivals the user can't currently see because they're scrolled up.
- * Tap → smooth scrollToEnd + reset counter. Reaching the bottom by hand
- * also clears it (see handleScroll above).
+ * Floating "back to latest" chip pinned above the composer area.
+ *
+ * Same rule and same shape as the chat list's `JumpToLatestButton`: shown
+ * whenever the reader is scrolled up into history, with a count when
+ * something actually arrived while they were reading. Tap → smooth
+ * scrollToEnd, clear the count. Reaching the bottom by hand also hides it
+ * (see handleScroll above).
  *
  * Positioned absolute bottom-center inside the parent <View flex-1> wrap;
  * doesn't overlap content because the timeline's `contentContainer`
  * already has its own bottom padding for breathing room above the
  * composer hand-off.
  */
-function NewCommentChip({
+function JumpToLatestChip({
   count,
   onPress,
 }: {
@@ -976,15 +985,20 @@ function NewCommentChip({
   const { colorScheme } = useColorScheme();
   const { t } = useT("issues");
   const fg = THEME[colorScheme].primaryForeground;
+  const label: string =
+    count > 0
+      ? String(t("jump_label", { count }))
+      : String(t("jump_to_latest"));
   return (
     <Pressable
       onPress={onPress}
       className="absolute bottom-3 self-center px-3.5 py-1.5 rounded-full bg-primary active:opacity-80 flex-row items-center gap-1.5"
       accessibilityRole="button"
-      accessibilityLabel={t(
-        count === 1 ? "jump_a11y_one" : "jump_a11y_other",
-        { count },
-      )}
+      accessibilityLabel={
+        count > 0
+          ? String(t("jump_a11y", { count }))
+          : String(t("jump_to_latest_a11y"))
+      }
       style={{
         // shadow comes from system, not Tailwind — keeps the chip readable
         // against either light or dark timeline content beneath.
@@ -997,7 +1011,7 @@ function NewCommentChip({
     >
       <Ionicons name="arrow-down" size={14} color={fg} />
       <Text className="text-xs font-semibold text-primary-foreground">
-        {count} new
+        {label}
       </Text>
     </Pressable>
   );
