@@ -10,6 +10,8 @@ export const agentKeys = {
       : (["agents", wsId] as const),
   detail: (wsId: string | null, agentId: string) =>
     ["agents", wsId, "detail", agentId] as const,
+  labels: (wsId: string | null, agentId: string) =>
+    ["agents", wsId, "labels", agentId] as const,
   tasks: (wsId: string | null, agentId: string) =>
     ["agent-tasks", wsId, agentId] as const,
   tasksAll: (wsId: string | null) => ["agent-tasks", wsId] as const,
@@ -31,6 +33,14 @@ export const agentListOptions = (wsId: string | null, opts?: { includeArchived?:
       )
         ? 30_000
         : false,
+  });
+
+export const agentLabelsOptions = (wsId: string | null, agentId: string) =>
+  queryOptions({
+    queryKey: agentKeys.labels(wsId, agentId),
+    queryFn: ({ signal }) => api.listAgentLabels(agentId, { signal }),
+    enabled: !!wsId && !!agentId,
+    staleTime: 15_000,
   });
 
 export const agentDetailOptions = (wsId: string | null, agentId: string) =>

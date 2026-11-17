@@ -31,6 +31,7 @@ import type {
   Issue,
   IssueLabelsResponse,
   Label,
+  LabelResourceType,
   IssueReaction,
   ListIssuesParams,
   ListIssuesResponse,
@@ -85,6 +86,7 @@ import type {
 } from "@multica/core/api/schemas";
 import {
   ActiveTasksResponseSchema,
+  AgentLabelsResponseSchema,
   AgentSkillsResponseSchema,
   AgentListSchema,
   AgentSchema,
@@ -99,6 +101,7 @@ import {
   CancelAgentTasksResponseSchema,
   EMPTY_ACTIVE_TASKS_RESPONSE,
   EMPTY_AGENT,
+  EMPTY_AGENT_LABELS,
   EMPTY_AGENT_LIST,
   EMPTY_AGENT_TASK_LIST,
   EMPTY_ATTACHMENT_LIST,
@@ -148,6 +151,7 @@ import {
   EMPTY_TASK_MESSAGE_LIST,
   UserSchema,
   WorkspaceListSchema,
+  UpdateAgentRequestSchema,
 } from "./schemas";
 import type { SkillSearchCandidate } from "./schemas";
 import type { ZodType } from "zod";
@@ -783,11 +787,51 @@ class ApiClient {
     // Writes consume the returned row to replace optimistic caches. A schema
     // drift must fail (and roll back) rather than replace the agent with a
     // blank fallback.
+    //
+    // The outgoing body is validated too: mobile's request type is a copy of
+    // the server contract, and a field the endpoint rejects (e.g. `custom_env`)
+    // must fail here instead of turning into a 400 after an optimistic patch.
+    const body = UpdateAgentRequestSchema.parse(data);
     const raw = await this.fetch<unknown>(`/api/agents/${id}`, {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify(body),
     });
     return AgentSchema.parse(raw);
+  }
+
+  // --- Agent labels ---
+  // Agent labels are a separate catalog (`resource_type=agent`) from issue
+  // labels; attaching an issue label returns 404. The sheet therefore reads
+  // both the workspace agent catalog and this agent's current labels.
+  async listAgentLabels(
+    agentId: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<Label[]> {
+    const raw = await this.fetch<unknown>(`/api/agents/${agentId}/labels`, {
+      signal: opts?.signal,
+    });
+    return parseWithFallback(
+      raw,
+      AgentLabelsResponseSchema,
+      { labels: EMPTY_AGENT_LABELS },
+      { endpoint: "GET /api/agents/{id}/labels" },
+    ).labels;
+  }
+
+  async attachAgentLabel(agentId: string, labelId: string): Promise<Label[]> {
+    const raw = await this.fetch<unknown>(`/api/agents/${agentId}/labels`, {
+      method: "POST",
+      body: JSON.stringify({ label_id: labelId }),
+    });
+    return AgentLabelsResponseSchema.parse(raw).labels;
+  }
+
+  async detachAgentLabel(agentId: string, labelId: string): Promise<Label[]> {
+    const raw = await this.fetch<unknown>(
+      `/api/agents/${agentId}/labels/${labelId}`,
+      { method: "DELETE" },
+    );
+    return AgentLabelsResponseSchema.parse(raw).labels;
   }
 
   async archiveAgent(id: string): Promise<Agent> {
@@ -1140,8 +1184,12 @@ class ApiClient {
   // --- Labels ---
   async listLabels(opts?: {
     signal?: AbortSignal;
+    resourceType?: LabelResourceType;
   }): Promise<ListLabelsResponse> {
-    const raw = await this.fetch<unknown>("/api/labels", {
+    const query = opts?.resourceType
+      ? `?resource_type=${opts.resourceType}`
+      : "";
+    const raw = await this.fetch<unknown>(`/api/labels${query}`, {
       signal: opts?.signal,
     });
     return parseWithFallback(

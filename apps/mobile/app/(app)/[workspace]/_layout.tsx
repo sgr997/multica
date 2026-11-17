@@ -340,6 +340,7 @@ export default function WorkspaceLayout() {
           }}
         />
         <Stack.Screen name="agent/[id]/skills/add" options={SHEET_OPTIONS} />
+        <Stack.Screen name="agent/[id]/labels" options={SHEET_OPTIONS} />
         <Stack.Screen
           name="agent/[id]/edit"
           options={{

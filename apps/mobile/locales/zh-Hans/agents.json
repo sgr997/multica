@@ -73,6 +73,85 @@
       "read_only": "技能编辑将在后续阶段开放。"
     }
   },
+  "labels": {
+    "title": "标签",
+    "edit": "编辑",
+    "loading": "正在加载标签…",
+    "load_failed": "加载标签失败，点击重试。",
+    "empty": "暂无标签",
+    "search_placeholder": "搜索标签",
+    "catalog_empty": "此工作区还没有智能体标签，在上方输入名称即可创建。",
+    "no_matches": "没有匹配的标签。",
+    "create": "创建「{{name}}」",
+    "create_failed": "创建标签失败：{{message}}",
+    "save": "保存",
+    "saving": "保存中…",
+    "save_failed": "更新标签失败：{{message}}"
+  },
+  "access": {
+    "label": "访问权限",
+    "owner_only": "只有智能体负责人可以修改访问权限。",
+    "summary": {
+      "private": "仅自己",
+      "workspace": "工作区所有成员",
+      "allowlist": "指定成员"
+    },
+    "scope": {
+      "private": {
+        "title": "仅自己",
+        "description": "其他人都无法触发该智能体。"
+      },
+      "workspace": {
+        "title": "工作区所有成员",
+        "description": "工作区内的任何成员都可以触发该智能体。"
+      },
+      "allowlist": {
+        "title": "指定成员",
+        "description": "只有你选中的成员可以触发该智能体。"
+      }
+    },
+    "members_title": "可访问的成员",
+    "members_empty": "没有其他成员可添加。",
+    "members_required": "请至少选择一位成员。",
+    "save": "保存权限",
+    "saving": "保存中…",
+    "save_failed": "保存权限失败：{{message}}",
+    "private_confirm_title": "改为仅自己可用？",
+    "private_confirm_message": "其他人会立刻失去访问权限，之后只有你能触发该智能体。",
+    "private_confirm_action": "改为仅自己"
+  },
+  "runtime": {
+    "title": "运行配置",
+    "advanced_badge": "高级",
+    "custom_args": "自定义参数",
+    "custom_args_empty": "没有自定义参数",
+    "add_arg": "添加",
+    "add_arg_title": "添加参数",
+    "edit_arg_title": "编辑参数",
+    "arg_prompt_message": "每行填写一个 CLI 参数。",
+    "move_up": "上移 {{arg}}",
+    "move_down": "下移 {{arg}}",
+    "remove_arg": "移除 {{arg}}",
+    "max_concurrency": "最大并发任务数",
+    "max_concurrency_hint": "该智能体同时最多运行多少个任务。",
+    "decrease": "减少",
+    "increase": "增加",
+    "save": "保存配置",
+    "saving": "保存中…",
+    "saved": "配置已保存。",
+    "save_failed": "保存失败：{{message}}",
+    "errors": {
+      "empty_arg": "请移除空参数。",
+      "concurrency_range": "请选择 {{min}} 到 {{max}} 之间的任务数。"
+    },
+    "readonly": {
+      "provider": "提供方",
+      "model": "模型",
+      "thinking": "思考级别",
+      "service_tier": "服务档位",
+      "hint": "高级运行参数请在网页端修改。"
+    }
+  },
   "edit": {
     "title": "编辑智能体",
     "name": "名称",

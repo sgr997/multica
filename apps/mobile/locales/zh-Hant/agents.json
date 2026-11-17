@@ -73,6 +73,85 @@
       "read_only": "技能編輯將在後續階段開放。"
     }
   },
+  "labels": {
+    "title": "標籤",
+    "edit": "編輯",
+    "loading": "正在載入標籤…",
+    "load_failed": "載入標籤失敗，點擊重試。",
+    "empty": "尚無標籤",
+    "search_placeholder": "搜尋標籤",
+    "catalog_empty": "此工作區尚無智慧體標籤，在上方輸入名稱即可建立。",
+    "no_matches": "沒有符合的標籤。",
+    "create": "建立「{{name}}」",
+    "create_failed": "建立標籤失敗：{{message}}",
+    "save": "儲存",
+    "saving": "儲存中…",
+    "save_failed": "更新標籤失敗：{{message}}"
+  },
+  "access": {
+    "label": "存取權限",
+    "owner_only": "只有智慧體負責人可以修改存取權限。",
+    "summary": {
+      "private": "僅自己",
+      "workspace": "工作區所有成員",
+      "allowlist": "指定成員"
+    },
+    "scope": {
+      "private": {
+        "title": "僅自己",
+        "description": "其他人都無法觸發此智慧體。"
+      },
+      "workspace": {
+        "title": "工作區所有成員",
+        "description": "工作區內的任何成員都可以觸發此智慧體。"
+      },
+      "allowlist": {
+        "title": "指定成員",
+        "description": "只有你選取的成員可以觸發此智慧體。"
+      }
+    },
+    "members_title": "可存取的成員",
+    "members_empty": "沒有其他成員可加入。",
+    "members_required": "請至少選擇一位成員。",
+    "save": "儲存權限",
+    "saving": "儲存中…",
+    "save_failed": "儲存權限失敗：{{message}}",
+    "private_confirm_title": "改為僅自己可用？",
+    "private_confirm_message": "其他人會立刻失去存取權限，之後只有你能觸發此智慧體。",
+    "private_confirm_action": "改為僅自己"
+  },
+  "runtime": {
+    "title": "執行設定",
+    "advanced_badge": "進階",
+    "custom_args": "自訂參數",
+    "custom_args_empty": "沒有自訂參數",
+    "add_arg": "新增",
+    "add_arg_title": "新增參數",
+    "edit_arg_title": "編輯參數",
+    "arg_prompt_message": "每列填寫一個 CLI 參數。",
+    "move_up": "上移 {{arg}}",
+    "move_down": "下移 {{arg}}",
+    "remove_arg": "移除 {{arg}}",
+    "max_concurrency": "最大並行任務數",
+    "max_concurrency_hint": "此智慧體同時最多執行多少個任務。",
+    "decrease": "減少",
+    "increase": "增加",
+    "save": "儲存設定",
+    "saving": "儲存中…",
+    "saved": "設定已儲存。",
+    "save_failed": "儲存失敗：{{message}}",
+    "errors": {
+      "empty_arg": "請移除空參數。",
+      "concurrency_range": "請選擇 {{min}} 到 {{max}} 之間的任務數。"
+    },
+    "readonly": {
+      "provider": "供應商",
+      "model": "模型",
+      "thinking": "思考等級",
+      "service_tier": "服務等級",
+      "hint": "進階執行參數請在網頁端修改。"
+    }
+  },
   "edit": {
     "title": "編輯智慧體",
     "name": "名稱",

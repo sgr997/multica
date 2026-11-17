@@ -23,7 +23,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { canEditAgent } from "@multica/core/permissions/rules";
-import type { Agent } from "@multica/core/types";
 import { ApiError } from "@/data/api";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,9 @@ import { PresenceDot } from "@/components/ui/presence-dot";
 import { agentRuntimeLabel } from "@/components/agents/agent-row";
 import { AgentRunRow } from "@/components/agents/agent-run-row";
 import { AgentSkillsSection } from "@/components/agents/agent-skills-section";
+import { AgentLabelsSection } from "@/components/agents/agent-labels-section";
+import { AgentAccessSection } from "@/components/agents/agent-access-section";
+import { AgentRuntimeConfigSection } from "@/components/agents/agent-runtime-config-section";
 import { Markdown } from "@/lib/markdown";
 import {
   agentDetailOptions,
@@ -70,6 +72,7 @@ export default function AgentDetailScreen() {
   const canEdit = agent
     ? canEditAgent(agent, { userId, role }).allowed
     : false;
+  const isOwner = !!agent && agent.owner_id !== null && agent.owner_id === userId;
 
   const archive = useArchiveAgent(id);
   const restore = useRestoreAgent(id);
@@ -430,6 +433,8 @@ export default function AgentDetailScreen() {
           </Button>
         </Section>
 
+        <AgentLabelsSection agent={agent} canEdit={canEdit} />
+
         <Section title={t("detail.sections.identity")}>
           <InfoLine
             label={t("detail.identity.agent_id")}
@@ -445,9 +450,10 @@ export default function AgentDetailScreen() {
             value={runtime?.provider || t("detail.unknown")}
             mono={!!runtime?.provider}
           />
-          <InfoLine
-            label={t("detail.identity.access")}
-            value={accessLabel(agent, t)}
+          <AgentAccessSection
+            agent={agent}
+            members={members}
+            isOwner={isOwner}
           />
           <InfoLine
             label={t("detail.identity.owner")}
@@ -463,6 +469,12 @@ export default function AgentDetailScreen() {
           />
         </Section>
 
+        <AgentRuntimeConfigSection
+          agent={agent}
+          runtime={runtime}
+          canEdit={canEdit}
+        />
+
         <AgentSkillsSection agent={agent} runtime={runtime} canEdit={canEdit} />
       </ScrollView>
     </SafeAreaView>
@@ -471,19 +483,6 @@ export default function AgentDetailScreen() {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
-}
-
-function accessLabel(
-  agent: Agent,
-  t: (key: string) => string,
-): string {
-  if (agent.permission_mode === "private") return t("detail.identity.private");
-  const workspace = agent.invocation_targets.some(
-    (target) => target.target_type === "workspace",
-  );
-  return workspace
-    ? t("detail.identity.workspace")
-    : t("detail.identity.specific_people");
 }
 
 function formatDate(value: string, locale: string): string {

@@ -74,6 +74,85 @@
       "read_only": "Skills editing arrives in a later phase."
     }
   },
+  "labels": {
+    "title": "Labels",
+    "edit": "Edit",
+    "loading": "Loading labels…",
+    "load_failed": "Couldn't load labels. Tap to retry.",
+    "empty": "No labels yet",
+    "search_placeholder": "Search labels",
+    "catalog_empty": "No agent labels in this workspace. Type a name above to create one.",
+    "no_matches": "No labels match this search.",
+    "create": "Create \"{{name}}\"",
+    "create_failed": "Couldn't create the label: {{message}}",
+    "save": "Save",
+    "saving": "Saving…",
+    "save_failed": "Couldn't update labels: {{message}}"
+  },
+  "access": {
+    "label": "Access",
+    "owner_only": "Only the agent owner can change access.",
+    "summary": {
+      "private": "Only you",
+      "workspace": "Everyone in the workspace",
+      "allowlist": "Specific people"
+    },
+    "scope": {
+      "private": {
+        "title": "Only you",
+        "description": "Nobody else can trigger this agent."
+      },
+      "workspace": {
+        "title": "Everyone in the workspace",
+        "description": "Any workspace member can trigger this agent."
+      },
+      "allowlist": {
+        "title": "Specific people",
+        "description": "Only the members you select can trigger this agent."
+      }
+    },
+    "members_title": "People with access",
+    "members_empty": "There are no other members to add.",
+    "members_required": "Select at least one person.",
+    "save": "Save access",
+    "saving": "Saving…",
+    "save_failed": "Couldn't save access: {{message}}",
+    "private_confirm_title": "Make this agent private?",
+    "private_confirm_message": "Everyone else loses access immediately. Only you will be able to trigger it.",
+    "private_confirm_action": "Make private"
+  },
+  "runtime": {
+    "title": "Runtime configuration",
+    "advanced_badge": "Advanced",
+    "custom_args": "Custom arguments",
+    "custom_args_empty": "No custom arguments",
+    "add_arg": "Add",
+    "add_arg_title": "Add argument",
+    "edit_arg_title": "Edit argument",
+    "arg_prompt_message": "One CLI argument per entry.",
+    "move_up": "Move {{arg}} up",
+    "move_down": "Move {{arg}} down",
+    "remove_arg": "Remove {{arg}}",
+    "max_concurrency": "Max concurrent tasks",
+    "max_concurrency_hint": "How many tasks this agent may run at once.",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "save": "Save configuration",
+    "saving": "Saving…",
+    "saved": "Configuration saved.",
+    "save_failed": "Couldn't save: {{message}}",
+    "errors": {
+      "empty_arg": "Remove empty arguments.",
+      "concurrency_range": "Choose between {{min}} and {{max}} tasks."
+    },
+    "readonly": {
+      "provider": "Provider",
+      "model": "Model",
+      "thinking": "Thinking",
+      "service_tier": "Service tier",
+      "hint": "Advanced runtime parameters are managed on the web."
+    }
+  },
   "edit": {
     "title": "Edit agent",
     "name": "Name",

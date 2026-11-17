@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   Agent,
   CreateAgentRequest,
+  Label,
   RuntimeLocalSkillSummary,
   SkillSummary,
   UpdateAgentRequest,
@@ -27,6 +28,7 @@ import {
   withSkillEnabled,
   withoutSkill,
 } from "@/lib/agent-skills";
+import { diffAgentLabels } from "@/lib/agent-labels";
 
 function patchAgentCaches(
   qc: ReturnType<typeof useQueryClient>,
@@ -296,6 +298,62 @@ export function useRestoreAgent(agentId: string) {
     onSuccess: (server) => {
       qc.setQueryData(agentKeys.detail(wsId, agentId), server);
       void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
+    },
+  });
+}
+
+/**
+ * Persist a label-editor draft. The backend only exposes attach/detach, so
+ * the diff runs sequentially and each response carries the authoritative
+ * label list. The cache is patched optimistically first (the sheet's selection
+ * and the detail block agree immediately) and rolled back on failure.
+ *
+ * A partially-applied diff is possible when request N fails after N-1
+ * succeeded; the settle-time invalidation re-reads the server so the UI never
+ * keeps showing the rolled-back snapshot over real server state.
+ */
+export function useSaveAgentLabels(agentId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+
+  return useMutation({
+    mutationKey: ["saveAgentLabels", agentId] as const,
+    mutationFn: async ({
+      current,
+      next,
+    }: {
+      current: Label[];
+      next: Label[];
+    }) => {
+      const diff = diffAgentLabels(current, next);
+      let labels = current;
+      for (const label of diff.attach) {
+        labels = await api.attachAgentLabel(agentId, label.id);
+      }
+      for (const label of diff.detach) {
+        labels = await api.detachAgentLabel(agentId, label.id);
+      }
+      return labels;
+    },
+    onMutate: async ({ next }) => {
+      const key = agentKeys.labels(wsId, agentId);
+      await qc.cancelQueries({ queryKey: key });
+      const snapshot = qc.getQueryData<Label[]>(key);
+      qc.setQueryData<Label[]>(key, next);
+      return { key, snapshot };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.snapshot) {
+        qc.setQueryData(context.key, context.snapshot);
+      }
+    },
+    onSuccess: (labels) => {
+      qc.setQueryData(agentKeys.labels(wsId, agentId), labels);
+      void qc.invalidateQueries({ queryKey: agentKeys.detail(wsId, agentId) });
+      void qc.invalidateQueries({ queryKey: agentKeys.all(wsId) });
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: agentKeys.labels(wsId, agentId) });
     },
   });
 }

@@ -19,9 +19,10 @@ export function useCreateLabel() {
     onSuccess: (label) => {
       // Append to the workspace label list cache so the picker sees the
       // new label without waiting for a refetch. labelListOptions stores
-      // a flat Label[] (unwrapped from the API response envelope) at
-      // `labelKeys.all(wsId)` — match that shape here.
-      qc.setQueryData<Label[]>(labelKeys.all(wsId), (old) =>
+      // a flat Label[] (unwrapped from the API response envelope) under
+      // `labelKeys.list(wsId, resourceType)` — match that shape here.
+      const key = labelKeys.list(wsId, label.resource_type ?? "issue");
+      qc.setQueryData<Label[]>(key, (old) =>
         old && !old.some((l) => l.id === label.id) ? [...old, label] : old,
       );
     },

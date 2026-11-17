@@ -12,7 +12,9 @@
 import { z } from "zod";
 import type {
   Agent,
+  AgentConversationStarter,
   AgentInvocationTarget,
+  AgentInvocationTargetInput,
   AgentSkillSummary,
   AgentTask,
   Attachment,
@@ -42,6 +44,7 @@ import type {
   SkillSummary,
   Squad,
   TaskMessagePayload,
+  UpdateAgentRequest,
   User,
   Workspace,
 } from "@multica/core/types";
@@ -138,8 +141,11 @@ export const EMPTY_NOTIFICATION_PREFERENCES = {
 const LabelSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
+  resource_type: z.enum(["issue", "agent", "skill"]).optional(),
   name: z.string(),
+  description: z.string().optional(),
   color: z.string(),
+  usage_count: z.number().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 }).loose();
@@ -161,6 +167,19 @@ export const IssueLabelsResponseSchema = z.object({
 export const EMPTY_ISSUE_LABELS_RESPONSE: IssueLabelsResponse = {
   labels: [],
 };
+
+/**
+ * `GET/POST/DELETE /api/agents/{id}/labels` — the agent label list. The
+ * envelope has no `total` (unlike the workspace catalog), so it needs its
+ * own schema rather than reusing `ListLabelsResponseSchema`.
+ */
+export const AgentLabelsResponseSchema = z
+  .object({
+    labels: z.array(LabelSchema).default([]),
+  })
+  .loose();
+
+export const EMPTY_AGENT_LABELS: Label[] = [];
 
 export const ProjectSchema = z.object({
   id: z.string(),
@@ -838,6 +857,48 @@ export const AgentSchema: z.ZodType<Agent> = z.object({
 
 export const AgentListSchema = z.array(AgentSchema).default([]);
 export const EMPTY_AGENT_LIST: Agent[] = [];
+
+const AgentInvocationTargetInputSchema: z.ZodType<AgentInvocationTargetInput> =
+  z.object({
+    target_type: z.enum(["workspace", "member", "team"]),
+    target_id: z.string().optional(),
+  });
+
+const AgentConversationStarterSchema: z.ZodType<AgentConversationStarter> =
+  z.object({
+    label: z.string(),
+    prompt: z.string(),
+  });
+
+/**
+ * Outgoing `PUT /api/agents/{id}` body. Mirrors the server's
+ * `UpdateAgentRequest` (server/internal/handler/agent.go) field for field.
+ * Strict on purpose: mobile must not silently send fields that endpoint
+ * rejects (`custom_env`) or drop fields this request supports. This is the
+ * mobile-local copy — the core shared schemas may strip fields mobile needs.
+ */
+export const UpdateAgentRequestSchema: z.ZodType<UpdateAgentRequest> =
+  z.strictObject({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    instructions: z.string().optional(),
+    conversation_starters: z.array(AgentConversationStarterSchema).optional(),
+    avatar_url: z.string().optional(),
+    runtime_id: z.string().optional(),
+    runtime_config: z.record(z.string(), z.unknown()).optional(),
+    custom_args: z.array(z.string()).optional(),
+    mcp_config: z.unknown().nullable().optional(),
+    composio_toolkit_allowlist: z.array(z.string()).nullable().optional(),
+    visibility: z.enum(["workspace", "private"]).optional(),
+    permission_mode: z.enum(["private", "public_to"]).optional(),
+    invocation_targets: z.array(AgentInvocationTargetInputSchema).optional(),
+    status: z.enum(["idle", "working", "blocked", "error", "offline"]).optional(),
+    max_concurrent_tasks: z.number().int().min(1).max(50).optional(),
+    model: z.string().optional(),
+    thinking_level: z.string().optional(),
+    service_tier: z.string().optional(),
+  });
+
 export const CancelAgentTasksResponseSchema = z
   .object({
     cancelled: z.number().default(0),
