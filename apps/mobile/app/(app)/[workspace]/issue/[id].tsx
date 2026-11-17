@@ -259,6 +259,7 @@ export default function IssueDetail() {
         finishComplete();
       },
       onError: (error) => {
+        requestTimelineOffsetRestore();
         Alert.alert(
           t("complete.status_failed_title"),
           error instanceof Error && error.message
@@ -271,12 +272,26 @@ export default function IssueDetail() {
 
   const onPressComplete = useCallback(() => {
     if (complete.isPending) return;
+    // Presenting the confirm alert can detach the timeline's native list (the
+    // same reason the "…" sheet restores explicitly). Doing it for both
+    // dismissal paths keeps the header button free of a scroll side effect
+    // without changing what the button does.
     Alert.alert(
       t("complete.confirm_title"),
       t("complete.confirm_body"),
       [
-        { text: t("common:actions.cancel"), style: "cancel" },
-        { text: t("complete.confirm_action"), onPress: confirmComplete },
+        {
+          text: t("common:actions.cancel"),
+          style: "cancel",
+          onPress: requestTimelineOffsetRestore,
+        },
+        {
+          text: t("complete.confirm_action"),
+          onPress: () => {
+            requestTimelineOffsetRestore();
+            confirmComplete();
+          },
+        },
       ],
     );
   }, [complete.isPending, confirmComplete, t]);
