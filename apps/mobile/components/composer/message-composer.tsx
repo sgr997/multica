@@ -52,8 +52,15 @@ import { router, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { api, MAX_FILE_SIZE } from "@/data/api";
 import { useMentionDraftStore } from "@/data/stores/mention-draft-store";
+import {
+  canSendMessage,
+  completedAttachmentIds,
+  planImageUpload,
+  resolveSubmitContent,
+} from "@/lib/composer-attachments";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { stripMarkdown } from "@/lib/strip-markdown";
 import { THEME } from "@/lib/theme";
@@ -139,6 +146,19 @@ interface Props {
 
 function makeLocalId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** HEIC/HEIF → JPEG re-encode. iOS photo picks are frequently HEIC; the
+ *  server sniffs those bytes as `application/octet-stream`, so the upload
+ *  would succeed but never render as an image. Keep the compression at 0.9
+ *  to preserve photo quality without shipping the full-size original. */
+async function convertImageToJpeg(uri: string): Promise<string> {
+  const rendered = await ImageManipulator.manipulate(uri).renderAsync();
+  const saved = await rendered.saveAsync({
+    compress: 0.9,
+    format: SaveFormat.JPEG,
+  });
+  return saved.uri;
 }
 
 /** Serialises mention chips into the markdown link form the backend
@@ -237,13 +257,15 @@ export function MessageComposer({
     return () => cancelAnimationFrame(frame);
   }, [expanded, triggerSeen, disabled]);
 
-  const hasInFlightUpload = attachments.some((a) => a.status === "uploading");
-  const canSend =
-    !disabled &&
-    (!isSending || allowSubmitWhileRunning) &&
-    !submitting &&
-    !hasInFlightUpload &&
-    (text.trim().length > 0 || mentions.length > 0);
+  const canSend = canSendMessage({
+    text,
+    mentionCount: mentions.length,
+    attachments,
+    disabled,
+    isSending,
+    allowSubmitWhileRunning,
+    submitting,
+  });
 
   const expand = useCallback(() => {
     if (disabled) return;
@@ -264,16 +286,17 @@ export function MessageComposer({
 
     const mentionMd = serializeMentions(mentionsSnap);
     const trimmed = textSnap.trim();
-    const content = mentionMd
+    const typedContent = mentionMd
       ? trimmed
         ? `${mentionMd} ${trimmed}`
         : mentionMd
       : trimmed;
 
-    const activeIds = attachmentsSnap
-      .filter((a) => a.status === "completed")
-      .map((a) => a.id)
-      .filter((id): id is string => !!id);
+    const activeIds = completedAttachmentIds(attachmentsSnap);
+    // Both the chat and comment endpoints reject `content: ""`; an
+    // attachment-only message travels as a single space so the image isn't
+    // dropped on the floor.
+    const content = resolveSubmitContent(typedContent, activeIds);
 
     // Optimistic clear: text + chips empty out immediately so the next
     // typing tick doesn't double-include them. Restored on rejection.
@@ -325,6 +348,12 @@ export function MessageComposer({
     ) => {
       try {
         const result = await api.uploadFile(asset, uploadContext);
+        if (typeof result.id !== "string" || result.id.trim().length === 0) {
+          console.error("[api] upload returned empty id", {
+            filename: asset.name,
+          });
+          throw new Error(t("composer.upload_failed_message"));
+        }
         setAttachments((prev) =>
           prev.map((it) =>
             it.localId === localId
@@ -354,74 +383,125 @@ export function MessageComposer({
   );
 
   const onImagePress = useCallback(async () => {
-    const picker = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-    });
-    if (picker.canceled) return;
-    const picked = picker.assets[0];
-    if (!picked) return;
-    if (picked.fileSize != null && picked.fileSize > MAX_FILE_SIZE) {
+    try {
+      // Explicit permission first: without it launchImageLibraryAsync can
+      // reject before returning anything, and the old code had no catch — the
+      // pick vanished with no chip and no message, which is exactly the
+      // "selected an image, sent only text" report.
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          t("composer.photo_permission_title"),
+          t("composer.photo_permission_message"),
+        );
+        return;
+      }
+
+      const picker = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+      if (picker.canceled) return;
+      const picked = picker.assets[0];
+      if (!picked) return;
+      if (picked.fileSize != null && picked.fileSize > MAX_FILE_SIZE) {
+        Alert.alert(
+          t("composer.file_too_large_title"),
+          t("composer.file_too_large_message"),
+        );
+        return;
+      }
+
+      // Normalise HEIC/HEIF before the chip is created so both the filename
+      // and the MIME type match the JPEG bytes we actually upload, and so a
+      // retry re-sends the converted copy instead of the original HEIC.
+      const plan = planImageUpload({
+        name: picked.fileName ?? `image-${Date.now()}.jpg`,
+        type: picked.mimeType,
+      });
+      let uri = picked.uri;
+      if (plan.needsJpegConversion) {
+        try {
+          uri = await convertImageToJpeg(picked.uri);
+        } catch (err) {
+          console.error("[composer] HEIC conversion failed", err);
+          Alert.alert(
+            t("composer.pick_failed_title"),
+            t("composer.pick_failed_message"),
+          );
+          return;
+        }
+      }
+
+      const localId = makeLocalId();
+      setAttachments((prev) => [
+        ...prev,
+        {
+          localId,
+          localUri: uri,
+          filename: plan.name,
+          mimeType: plan.type,
+          status: "uploading",
+        },
+      ]);
+      requestAnimationFrame(() => inputRef.current?.focus());
+
+      await startUpload(localId, {
+        uri,
+        name: plan.name,
+        type: plan.type,
+      });
+    } catch (err) {
+      console.error("[composer] image pick failed", err);
       Alert.alert(
-        t("composer.file_too_large_title"),
-        t("composer.file_too_large_message"),
+        t("composer.pick_failed_title"),
+        t("composer.pick_failed_message"),
       );
-      return;
     }
-    const filename = picked.fileName ?? `image-${Date.now()}.jpg`;
-    const mimeType = picked.mimeType ?? "image/jpeg";
-    const localId = makeLocalId();
-    setAttachments((prev) => [
-      ...prev,
-      {
-        localId,
-        localUri: picked.uri,
-        filename,
-        mimeType,
-        status: "uploading",
-      },
-    ]);
-    requestAnimationFrame(() => inputRef.current?.focus());
-    await startUpload(localId, {
-      uri: picked.uri,
-      name: filename,
-      type: mimeType,
-    });
   }, [startUpload, t]);
 
   const onFilePress = useCallback(async () => {
-    const picker = await DocumentPicker.getDocumentAsync({
-      type: "*/*",
-      copyToCacheDirectory: true,
-    });
-    if (picker.canceled) return;
-    const picked = picker.assets[0];
-    if (!picked) return;
-    if (picked.size != null && picked.size > MAX_FILE_SIZE) {
+    try {
+      const picker = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (picker.canceled) return;
+      const picked = picker.assets[0];
+      if (!picked) return;
+      if (picked.size != null && picked.size > MAX_FILE_SIZE) {
+        Alert.alert(
+          t("composer.file_too_large_title"),
+          t("composer.file_too_large_message"),
+        );
+        return;
+      }
+      const mimeType = picked.mimeType ?? "application/octet-stream";
+      const localId = makeLocalId();
+      setAttachments((prev) => [
+        ...prev,
+        {
+          localId,
+          localUri: picked.uri,
+          filename: picked.name,
+          mimeType,
+          status: "uploading",
+        },
+      ]);
+      requestAnimationFrame(() => inputRef.current?.focus());
+      await startUpload(localId, {
+        uri: picked.uri,
+        name: picked.name,
+        type: mimeType,
+      });
+    } catch (err) {
+      console.error("[composer] file pick failed", err);
       Alert.alert(
-        t("composer.file_too_large_title"),
-        t("composer.file_too_large_message"),
+        t("composer.pick_failed_title"),
+        t("composer.pick_failed_message"),
       );
-      return;
     }
-    const mimeType = picked.mimeType ?? "application/octet-stream";
-    const localId = makeLocalId();
-    setAttachments((prev) => [
-      ...prev,
-      {
-        localId,
-        localUri: picked.uri,
-        filename: picked.name,
-        mimeType,
-        status: "uploading",
-      },
-    ]);
-    requestAnimationFrame(() => inputRef.current?.focus());
-    await startUpload(localId, {
-      uri: picked.uri,
-      name: picked.name,
-      type: mimeType,
-    });
   }, [startUpload, t]);
 
   const onRemoveAttachment = useCallback((localId: string) => {

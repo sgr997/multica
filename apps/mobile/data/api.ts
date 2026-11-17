@@ -1699,6 +1699,17 @@ class ApiClient {
       });
       throw new ApiError("Upload response invalid", res.status, json);
     }
+    // An empty id means the attachment row was never created (or the server
+    // replied with a placeholder). Passing it to the composer would mark the
+    // chip completed and then send a message with no attachment bound.
+    if (parsed.data.id.trim().length === 0) {
+      console.error("[api] upload returned empty id", {
+        rid,
+        filename: asset.name,
+        duration: `${duration}ms`,
+      });
+      throw new ApiError("Upload response missing id", res.status, json);
+    }
     return parsed.data;
   }
 }

@@ -22,7 +22,12 @@
     "working": "AI 代理正在處理...",
     "message": "訊息...",
     "queue_placeholder": "輸入訊息（可排隊或引導）...",
-    "send_failed": "訊息未傳送"
+    "send_failed": "訊息未傳送",
+    "upload_failed_message": "圖片沒有上傳成功。點擊附件重試，或移除後重送。",
+    "photo_permission_title": "需要相簿權限",
+    "photo_permission_message": "請在 iOS 設定裡允許 Multica 存取照片，然後重試。",
+    "pick_failed_title": "無法開啟選擇器",
+    "pick_failed_message": "請重試，或改用檔案方式加入。"
   },
   "queue": {
     "title_other": "{{count}} 則排隊訊息",

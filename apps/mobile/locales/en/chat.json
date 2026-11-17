@@ -22,7 +22,12 @@
     "working": "Agent is working…",
     "message": "Message…",
     "queue_placeholder": "Message — queue or steer while it runs…",
-    "send_failed": "Message not sent"
+    "send_failed": "Message not sent",
+    "upload_failed_message": "The image didn't upload. Tap the attachment to retry, or remove it.",
+    "photo_permission_title": "Photo access needed",
+    "photo_permission_message": "Allow Multica to access your photos in iOS Settings, then try again.",
+    "pick_failed_title": "Couldn't open the picker",
+    "pick_failed_message": "Try again, or attach a different file."
   },
   "queue": {
     "title_one": "{{count}} queued message",

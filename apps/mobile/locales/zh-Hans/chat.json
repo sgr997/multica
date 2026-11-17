@@ -22,7 +22,12 @@
     "working": "智能体正在处理...",
     "message": "消息...",
     "queue_placeholder": "输入消息（可排队或引导）...",
-    "send_failed": "消息未发送"
+    "send_failed": "消息未发送",
+    "upload_failed_message": "图片没有上传成功。点击附件重试，或移除后重发。",
+    "photo_permission_title": "需要相册权限",
+    "photo_permission_message": "请在 iOS 设置里允许 Multica 访问照片，然后重试。",
+    "pick_failed_title": "无法打开选择器",
+    "pick_failed_message": "请重试，或改用文件方式添加。"
   },
   "queue": {
     "title_other": "{{count}} 条排队消息",
