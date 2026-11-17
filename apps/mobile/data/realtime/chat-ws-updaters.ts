@@ -83,7 +83,32 @@ export function flipSessionUnread(
 ) {
   qc.setQueryData<ChatSession[]>(chatKeys.sessions(wsId), (old) =>
     old?.map((s) =>
-      s.id === sessionId ? { ...s, has_unread: hasUnread } : s,
+      s.id === sessionId
+        ? {
+            ...s,
+            has_unread: hasUnread,
+            // The tab badge sums `unread_count`; clearing only the flag
+            // leaves a phantom badge until a refetch (ZXP-17).
+            unread_count: hasUnread ? s.unread_count : 0,
+          }
+        : s,
+    ),
+  );
+}
+
+/** Clear both unread fields together. Any path that marks a session read
+ *  must use this, or `has_unread=false + unread_count>0` survives in the
+ *  cache and the tab badge keeps counting it. */
+export function clearSessionUnread(
+  qc: QueryClient,
+  wsId: string | null,
+  sessionId: string,
+) {
+  qc.setQueryData<ChatSession[]>(chatKeys.sessions(wsId), (old) =>
+    old?.map((s) =>
+      s.id === sessionId
+        ? { ...s, has_unread: false, unread_count: 0 }
+        : s,
     ),
   );
 }

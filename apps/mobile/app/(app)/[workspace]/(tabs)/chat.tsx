@@ -22,7 +22,8 @@
  *
  * Side effects:
  *   - useChatSessionRealtime(activeSessionId) for per-record WS events
- *   - auto markRead when entering a session with has_unread
+ *   - read watermark via ChatReadScheduler (tail + unread pair, flushed on
+ *     blur/session switch)
  *   - ensureSession dedupe ref for concurrent first-message sends
  *
  * Optimistic send burst mirrors web's chat-window.tsx send sequence
@@ -33,6 +34,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  AppState,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -70,6 +72,10 @@ import {
   useDeleteChatSession,
   useMarkChatSessionRead,
 } from "@/data/mutations/chat";
+import {
+  ChatReadScheduler,
+  type ChatReadSnapshot,
+} from "@/data/chat-session-read";
 import {
   DRAFT_NEW_SESSION,
   useChatDraftsStore,
@@ -271,14 +277,80 @@ export default function ChatTab() {
     useCallback(() => () => useChatSelectStore.getState().clear(), []),
   );
 
-  // ── Auto markRead while viewing a session with unread state ──────────
-  const markRead = useMarkChatSessionRead();
+  // ── Read watermark while viewing a session ──────────────────────────
+  //
+  // ZXP-17: `has_unread` alone is not a reliable trigger (a burst can flip
+  // it true → false → true between renders) and leaving the screen had no
+  // final flush. The scheduler watches the transcript tail plus the unread
+  // pair and flushes on blur/leave, so the tab badge reaches 0 immediately.
+  const { mutate: markSessionRead } = useMarkChatSessionRead();
+  const readScheduler = useMemo(
+    () =>
+      new ChatReadScheduler({
+        markRead: (sessionId) => markSessionRead(sessionId),
+      }),
+    [markSessionRead],
+  );
+  const lastMessageId = messagesLoading
+    ? null
+    : (messages[messages.length - 1]?.id ?? null);
+  const sessionUnread =
+    !!activeSession?.has_unread || (activeSession?.unread_count ?? 0) > 0;
+  const readSnapshotRef = useRef<ChatReadSnapshot>({
+    sessionId: activeSessionId,
+    focused: isFocused,
+    lastMessageId,
+    unread: sessionUnread,
+  });
   useEffect(() => {
-    if (!isFocused) return;
-    if (!activeSessionId) return;
-    if (!activeSession?.has_unread) return;
-    markRead.mutate(activeSessionId);
-  }, [isFocused, activeSessionId, activeSession?.has_unread, markRead]);
+    readSnapshotRef.current = {
+      sessionId: activeSessionId,
+      focused: isFocused,
+      lastMessageId,
+      unread: sessionUnread,
+    };
+  }, [activeSessionId, isFocused, lastMessageId, sessionUnread]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      // Blur / tab switch: send the read the reader already earned.
+      readScheduler.leave();
+      return;
+    }
+    readScheduler.update({
+      sessionId: activeSessionId,
+      focused: true,
+      lastMessageId,
+      unread: sessionUnread,
+    });
+  }, [
+    readScheduler,
+    isFocused,
+    activeSessionId,
+    lastMessageId,
+    sessionUnread,
+  ]);
+
+  // Switching sessions must flush the previous session before its marker
+  // becomes meaningless.
+  useEffect(() => {
+    return () => readScheduler.leave();
+  }, [readScheduler, activeSessionId]);
+
+  // Reads are never sent while the app is backgrounded. Keep the pending
+  // marker and re-evaluate when the reader comes back.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        if (readSnapshotRef.current.focused) {
+          readScheduler.update(readSnapshotRef.current);
+        }
+      } else {
+        readScheduler.suspend();
+      }
+    });
+    return () => sub.remove();
+  }, [readScheduler]);
 
   // ── Mutations ──────────────────────────────────────────────────────────
   const createSession = useCreateChatSession();
