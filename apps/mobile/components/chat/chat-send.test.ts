@@ -152,9 +152,6 @@ vi.mock("@/data/realtime/chat-ws-updaters", () => ({
   invalidatePendingTask: vi.fn(),
   seedAcceptedPendingTask: vi.fn(),
 }));
-vi.mock("@/data/chat-select-store", () => ({
-  useChatSelectStore: { getState: () => ({ clear: vi.fn() }) },
-}));
 vi.mock("@/lib/workspace-agent-availability", () => ({
   useWorkspaceAgentAvailability: () => "available",
 }));

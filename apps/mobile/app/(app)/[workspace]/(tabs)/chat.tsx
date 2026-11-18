@@ -40,7 +40,7 @@ import {
   Pressable,
   View,
 } from "react-native";
-import { router, useFocusEffect, useIsFocused } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Agent,
@@ -104,7 +104,6 @@ import { AgentPickerSheet } from "@/components/chat/agent-picker-sheet";
 import { NoAgentBanner } from "@/components/chat/no-agent-banner";
 import { OfflineBanner } from "@/components/chat/offline-banner";
 import { RuntimeRequiredBanner } from "@/components/chat/runtime-required-banner";
-import { useChatSelectStore } from "@/data/chat-select-store";
 import { isAgentRuntimeBound } from "@/lib/is-agent-runtime-bound";
 
 export default function ChatTab() {
@@ -269,14 +268,6 @@ export default function ChatTab() {
   useChatSessionRealtime(activeSessionId, () => {
     setActiveSessionId(null);
   });
-
-  // Exit text-selection mode whenever the chat tab loses focus. Expo
-  // Router bottom tabs stay mounted across tab switches, so a plain
-  // useEffect cleanup wouldn't fire — useFocusEffect is the navigation-
-  // aware equivalent.
-  useFocusEffect(
-    useCallback(() => () => useChatSelectStore.getState().clear(), []),
-  );
 
   // ── Read watermark while viewing a session ──────────────────────────
   //

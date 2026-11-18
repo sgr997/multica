@@ -45,7 +45,6 @@ import { useAuthStore } from "@/data/auth-store";
 import { useIssueRealtime } from "@/data/realtime/use-issue-realtime";
 import { useWorkspaceStore } from "@/data/workspace-store";
 import { useViewedIssuesStore } from "@/data/viewed-issues-store";
-import { useCommentSelectStore } from "@/data/comment-select-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useRefreshWithHaptics } from "@/lib/use-refresh-with-haptics";
 import {
@@ -102,12 +101,10 @@ export default function IssueDetail() {
   }, [wsId, id]);
 
   // Screen-scoped composer state — clear on unmount so re-entering the
-  // issue starts from a clean slate (no stale text-selection comment id,
-  // no stale "Replying to X" target). Both stores are singletons used by
-  // the long-press action sheet.
+  // issue starts from a clean slate (no stale "Replying to X" target).
+  // The store is a singleton used by the long-press action sheet.
   useEffect(() => {
     return () => {
-      useCommentSelectStore.getState().clear();
       useReplyTargetStore.getState().clear();
     };
   }, []);

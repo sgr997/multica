@@ -54,6 +54,11 @@
   "network": {
     "offline": "网络已断开 · 正在显示缓存内容"
   },
+  "selection": {
+    "title": "选择文字",
+    "hint": "拖动两端的把手选择范围，再用系统菜单复制选中部分。",
+    "copy_all": "复制全文"
+  },
   "errors": {
     "unexpected_title": "出了点问题",
     "unexpected_body": "应用遇到了意外错误。可以重试，或回到首页。",

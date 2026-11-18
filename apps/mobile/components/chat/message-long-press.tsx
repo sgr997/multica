@@ -10,9 +10,14 @@
  * Item set (v1, conditional):
  *   Copy · Select Text · Cancel
  *
+ * Copy puts *plain text* on the clipboard (not the raw markdown a message is
+ * stored as) and confirms with the app toast. Select Text opens the shared
+ * selection sheet (`components/system/text-selection-sheet.tsx`) instead of
+ * flipping the bubble into an in-place selection mode.
+ *
  * Mirrors `useCommentLongPress` in `components/issue/comment-context-
  * menu.tsx` — kept as a sibling rather than a shared primitive because
- * we have only 2 callers (chat + comments). Below the "3 callers + no
+ * we have only 2 callers (chat + comments), below the "3 callers + no
  * native alternative" threshold in apps/mobile/CLAUDE.md.
  */
 import { useCallback, useState } from "react";
@@ -20,17 +25,21 @@ import { ActionSheetIOS } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import type { ChatMessage } from "@multica/core/types";
-import { useChatSelectStore } from "@/data/chat-select-store";
+import { useAppToastStore } from "@/data/app-toast-store";
+import { useTextSelectionStore } from "@/data/text-selection-store";
 import { useT } from "@/lib/i18n";
+import { markdownToPlainText } from "@/lib/markdown/plain-text";
 
 export function useChatMessageLongPress(
   message: ChatMessage,
 ): { onLongPress: () => void; isPressed: boolean } {
   const [isPressed, setIsPressed] = useState(false);
   const { t } = useT("issues");
+  const { t: tCommon } = useT("common");
 
   const onLongPress = useCallback(() => {
-    const hasContent = !!message.content;
+    const plainText = markdownToPlainText(message.content ?? "");
+    const hasContent = plainText.length > 0;
 
     Haptics.selectionAsync().catch(() => {});
     setIsPressed(true);
@@ -51,7 +60,7 @@ export function useChatMessageLongPress(
       push(t("comments.copy"), { kind: "copy" });
       push(t("comments.select_text"), { kind: "select" });
     }
-    push(t("common:actions.cancel"), { kind: "cancel" });
+    push(tCommon("actions.cancel"), { kind: "cancel" });
 
     const cancelButtonIndex = options.length - 1;
 
@@ -64,20 +73,21 @@ export function useChatMessageLongPress(
 
         switch (action.kind) {
           case "copy":
-            if (message.content) {
-              Clipboard.setStringAsync(message.content);
-              Haptics.notificationAsync(
+            if (plainText) {
+              void Clipboard.setStringAsync(plainText);
+              void Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               ).catch(() => {});
+              useAppToastStore.getState().show(tCommon("errors.copied"));
             }
             return;
           case "select":
-            useChatSelectStore.getState().setSelecting(message.id);
+            useTextSelectionStore.getState().open(plainText);
             return;
         }
       },
     );
-  }, [message, t]);
+  }, [message.content, t, tCommon]);
 
   return { onLongPress, isPressed };
 }

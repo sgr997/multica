@@ -54,6 +54,11 @@
   "network": {
     "offline": "No internet connection — showing saved data"
   },
+  "selection": {
+    "title": "Select text",
+    "hint": "Drag the handles to choose a range, then use the system menu to copy it.",
+    "copy_all": "Copy all"
+  },
   "errors": {
     "unexpected_title": "Something went wrong",
     "unexpected_body": "The app hit an unexpected error. Try again, or go back home.",

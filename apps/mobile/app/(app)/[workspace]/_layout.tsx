@@ -15,6 +15,8 @@ import { usePresenceRealtime } from "@/data/realtime/use-presence-realtime";
 import { useSquadsRealtime } from "@/data/realtime/use-squads-realtime";
 import { useWorkspacePresencePrefetch } from "@/lib/use-workspace-presence-prefetch";
 import { ModalCloseButton } from "@/components/ui/modal-close-button";
+import { AppToast } from "@/components/system/app-toast";
+import { TextSelectionSheetHost } from "@/components/system/text-selection-sheet";
 import { useNewIssueDraftResetOnWorkspaceChange } from "@/data/stores/new-issue-draft-store";
 import { useNewProjectDraftResetOnWorkspaceChange } from "@/data/stores/new-project-draft-store";
 import { useChatSessionPickerResetOnWorkspaceChange } from "@/data/stores/chat-session-picker-store";
@@ -470,6 +472,8 @@ export default function WorkspaceLayout() {
           }}
         />
       </Stack>
+      <AppToast />
+      <TextSelectionSheetHost />
     </RealtimeProvider>
   );
 }

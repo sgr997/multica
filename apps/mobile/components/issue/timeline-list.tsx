@@ -46,7 +46,6 @@ import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
 import { hasActiveRun } from "@/lib/issue-active-run";
-import { useCommentSelectStore } from "@/data/comment-select-store";
 import {
   subscribeTimelineOffsetGuard,
   subscribeTimelineOffsetRestore,
@@ -120,11 +119,6 @@ export function TimelineList({
   highlightNonce,
   fromInbox,
 }: Props) {
-  // Top-level selection subscription gates the outer "tap-outside-to-dismiss"
-  // Pressable below. When null, the Pressable stays disabled and every tap
-  // passes through to comment cards / chip rows / reactions normally.
-  const selectingId = useCommentSelectStore((s) => s.selectingId);
-
   // Server already returns ASC oldest-first. Pipeline:
   //   1. coalesceTimeline → merge consecutive identical activities
   //   2. buildTimelineRows → reorder so replies sit adjacent to their parent
@@ -811,25 +805,7 @@ export function TimelineList({
   return (
     <ImageSequenceProvider blocks={imageBlocks}>
     <View className="flex-1">
-      {/* Outer Pressable owns the "tap anywhere outside the selected
-          comment to exit text-selection mode" gesture. Disabled when
-          no comment is selected → layout-only wrapper, every tap passes
-          through to cells / chips / reactions. Active state captures any
-          tap that didn't fire an inner Pressable — selecting CommentBody
-          renders without its own Pressable wrapper (see comment-card.tsx
-          `if (isSelecting) return body;`), so taps on the selected
-          comment dismiss too, matching iOS Notes / iMessage. Scroll
-          gestures are unaffected. */}
-      <Pressable
-        onLayout={handleLayout}
-        onPress={
-          selectingId
-            ? () => useCommentSelectStore.getState().clear()
-            : undefined
-        }
-        disabled={!selectingId}
-        style={{ flex: 1 }}
-      >
+      <Pressable onLayout={handleLayout} style={{ flex: 1 }}>
       <FlashList
         ref={listRef}
         data={dataWithDivider}
@@ -903,13 +879,11 @@ export function TimelineList({
           // the position from here on.
           gestureSeqRef.current += 1;
           headerActionGuardUntilRef.current = 0;
-          useCommentSelectStore.getState().clear();
         }}
         onMomentumScrollBegin={() => {
           userDraggingRef.current = true;
           userScrolledRef.current = true;
           gestureSeqRef.current += 1;
-          useCommentSelectStore.getState().clear();
         }}
         onScrollEndDrag={() => {
           userDraggingRef.current = false;

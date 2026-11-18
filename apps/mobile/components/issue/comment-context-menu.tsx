@@ -14,7 +14,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { Reaction, TimelineEntry } from "@multica/core/types";
 import { useAuthStore } from "@/data/auth-store";
 import { useWorkspaceStore } from "@/data/workspace-store";
-import { useCommentSelectStore } from "@/data/comment-select-store";
+import { useAppToastStore } from "@/data/app-toast-store";
+import { useTextSelectionStore } from "@/data/text-selection-store";
 import { useReplyTargetStore } from "@/data/stores/reply-target-store";
 import { useActorLookup } from "@/data/use-actor-name";
 import {
@@ -27,6 +28,7 @@ import { appConfigOptions } from "@/data/queries/billing";
 import { QUICK_EMOJIS } from "@/lib/quick-emojis";
 import { i18n, useT } from "@/lib/i18n";
 import { getWebBaseUrl } from "@/lib/runtime-config";
+import { markdownToPlainText } from "@/lib/markdown/plain-text";
 
 const QUICK_ROW_SIZE = 5;
 
@@ -150,14 +152,23 @@ export function useCommentLongPress(
             return;
           case "copy":
             if (entry.content) {
-              Clipboard.setStringAsync(entry.content);
-              Haptics.notificationAsync(
+              void Clipboard.setStringAsync(
+                markdownToPlainText(entry.content),
+              );
+              void Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               ).catch(() => {});
+              useAppToastStore
+                .getState()
+                .show(i18n.t("common:errors.copied"));
             }
             return;
           case "select":
-            useCommentSelectStore.getState().setSelecting(entry.id);
+            if (entry.content) {
+              useTextSelectionStore
+                .getState()
+                .open(markdownToPlainText(entry.content));
+            }
             return;
           case "copyLink": {
             if (!canCopyLink) return;

@@ -44,7 +44,6 @@ import {
 import { useReduceMotion } from "@/lib/use-reduce-motion";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
-import { useChatSelectStore } from "@/data/chat-select-store";
 import { useChatMessageLongPress } from "./message-long-press";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatTimeline } from "./chat-timeline";
@@ -99,11 +98,6 @@ export function ChatMessageList({
   liveTaskMessages,
   availability,
 }: Props) {
-  // Top-level selection subscription gates the outer "tap-outside-to-dismiss"
-  // Pressable below. When null, the Pressable stays disabled and every tap
-  // passes through to the list cells / bubble long-press wrappers normally.
-  const selectingId = useChatSelectStore((s) => s.selectingId);
-
   // ── Follow-the-latest state ────────────────────────────────────────────
   //
   // `following` is the reader's intent, not a measurement: it starts true
@@ -182,10 +176,6 @@ export function ChatMessageList({
 
   const startUserInteraction = useCallback(() => {
     userInteractingRef.current = true;
-    // Any user-initiated scroll exits message text-selection mode —
-    // matches iMessage's behavior where scrolling implicitly commits /
-    // dismisses the selection caret.
-    useChatSelectStore.getState().clear();
   }, []);
 
   /**
@@ -273,26 +263,8 @@ export function ChatMessageList({
     showLiveSection && (liveTaskMessages?.length ?? 0) > 0;
 
   return (
-    // Outer Pressable owns the "tap anywhere outside the selected bubble
-    // to exit text-selection mode" gesture. Disabled when no message is
-    // selected, so it's a layout-only wrapper and every tap passes straight
-    // through to the FlashList cells. Active state captures any tap that
-    // didn't fire an inner Pressable — bubble cells in selecting mode
-    // render their body without a Pressable wrapper (see `MessageRow`'s
-    // `if (isSelecting) return body;`), so taps on the selected bubble
-    // also dismiss, matching iOS Notes / iMessage behaviour. Scroll
-    // gestures are unaffected (Pressable only intercepts non-drag taps).
     <ImageSequenceProvider blocks={imageBlocks}>
     <View style={{ flex: 1 }}>
-    <Pressable
-      onPress={
-        selectingId
-          ? () => useChatSelectStore.getState().clear()
-          : undefined
-      }
-      disabled={!selectingId}
-      style={{ flex: 1 }}
-    >
     {/* No `key` here on purpose: the chat screen remounts this whole
         component when the session changes, so the list, its follow intent
         and the jump-to-latest chip all start clean. Keying the list by the
@@ -359,7 +331,6 @@ export function ChatMessageList({
       keyboardDismissMode="interactive"
       keyboardShouldPersistTaps="handled"
     />
-    </Pressable>
     {showJumpToLatest || newCount > 0 ? (
       <JumpToLatestButton onPress={jumpToLatest} newCount={newCount} />
     ) : null}
@@ -423,9 +394,6 @@ function MessageRow({
   const isUser = message.role === "user";
   const { t } = useT("chat");
   const isFailure = !!message.failure_reason;
-  const isSelecting = useChatSelectStore(
-    (s) => s.selectingId === message.id,
-  );
   const longPress = useChatMessageLongPress(message);
 
   if (isFailure) {
@@ -434,7 +402,6 @@ function MessageRow({
         reasonLabel={t(failureReasonKey(message.failure_reason))}
         rawError={message.content}
         elapsedMs={message.elapsed_ms ?? null}
-        isSelecting={isSelecting}
         longPress={longPress}
       />
     );
@@ -451,18 +418,16 @@ function MessageRow({
       <View
         className={cn(
           "self-end max-w-[80%] min-w-0 gap-1.5 overflow-hidden rounded-xl border-2 px-3.5 py-2 transition-colors",
-          isSelecting
-            ? "bg-primary/5 border-primary/30"
-            : longPress.isPressed
-              ? "bg-muted border-primary/30"
-              : "bg-muted border-transparent",
+          longPress.isPressed
+            ? "bg-muted border-primary/30"
+            : "bg-muted border-transparent",
         )}
         style={continuousCorners}
       >
         <Markdown
           content={message.content}
           attachments={message.attachments}
-          selectable={isSelecting}
+          selectable={false}
           compact
         />
         <CommentAttachmentList
@@ -471,7 +436,6 @@ function MessageRow({
         />
       </View>
     );
-    if (isSelecting) return body;
     return (
       <Pressable
         onLongPress={longPress.onLongPress}
@@ -487,7 +451,6 @@ function MessageRow({
   return (
     <AssistantRow
       message={message}
-      isSelecting={isSelecting}
       longPress={longPress}
       onQuickAction={onQuickAction}
       quickActionsDisabled={quickActionsDisabled}
@@ -506,18 +469,15 @@ function MessageRow({
  * Web's equivalent is `AssistantMessage` in packages/views/chat/components/
  * chat-message-list.tsx — same shape, simplified for RN (no inner Tooltip
  * / Copy button — long-press already exposes Copy via the native action
- * sheet, and selection mode owns the highlight, so a hover-only Copy
- * affordance would be redundant on mobile).
+ * sheet, so a hover-only Copy affordance would be redundant on mobile).
  */
 function AssistantRow({
   message,
-  isSelecting,
   longPress,
   onQuickAction,
   quickActionsDisabled,
 }: {
   message: ChatMessage;
-  isSelecting: boolean;
   longPress: ReturnType<typeof useChatMessageLongPress>;
   onQuickAction?: (action: ChatQuickAction) => void | Promise<unknown>;
   quickActionsDisabled: boolean;
@@ -549,7 +509,7 @@ function AssistantRow({
         <Markdown
           content={message.content}
           attachments={message.attachments}
-          selectable={isSelecting}
+          selectable={false}
         />
       )}
       {/* Standalone attachment cards for anything not referenced inline. An
@@ -568,7 +528,7 @@ function AssistantRow({
       ) : null}
     </View>
   );
-  const messageBody = isSelecting ? body : (
+  const messageBody = (
     <Pressable onLongPress={longPress.onLongPress} delayLongPress={500}>
       {body}
     </Pressable>
@@ -678,29 +638,24 @@ function FailureBubble({
   reasonLabel,
   rawError,
   elapsedMs,
-  isSelecting,
   longPress,
 }: {
   reasonLabel: string;
   rawError: string;
   elapsedMs: number | null;
-  isSelecting: boolean;
   longPress: ReturnType<typeof useChatMessageLongPress>;
 }) {
   const hasRawError = rawError.trim().length > 0;
   const { t } = useT("chat");
 
-  // B6: pass `selectable={isSelecting}` rather than hard-coding
-  // `selectable` — otherwise UIKit's text-selection gesture pre-empts
-  // our long-press handler and the action sheet never fires. Select-mode
-  // cue is the border-tint to primary; bg stays destructive so the
-  // failure signal is never lost.
+  // Non-selectable text so UIKit's selection gesture does not pre-empt the
+  // long-press handler; partial copies go through the selection sheet.
   const body = (
     <View className="self-start max-w-[80%]">
       <View
         className={cn(
           "rounded-xl border-2 bg-destructive/10 px-3.5 py-2 transition-colors",
-          isSelecting || longPress.isPressed
+          longPress.isPressed
             ? "border-primary/30"
             : "border-destructive/30",
         )}
@@ -731,7 +686,7 @@ function FailureBubble({
               <View className="mt-1 rounded-xs bg-muted/40 px-2 py-1.5">
                 <Text
                   className="text-xs text-muted-foreground"
-                  selectable={isSelecting}
+                  selectable={false}
                 >
                   {rawError}
                 </Text>
@@ -745,7 +700,6 @@ function FailureBubble({
       ) : null}
     </View>
   );
-  if (isSelecting) return body;
   return (
     <Pressable onLongPress={longPress.onLongPress} delayLongPress={500}>
       {body}

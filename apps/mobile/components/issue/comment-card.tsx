@@ -61,7 +61,6 @@ import { continuousCorners } from "@/lib/radius";
 import { useT } from "@/lib/i18n";
 import { ReactionBar } from "./reaction-bar";
 import { useCommentLongPress } from "./comment-context-menu";
-import { useCommentSelectStore } from "@/data/comment-select-store";
 
 interface Props {
   entry: TimelineEntry;
@@ -112,13 +111,6 @@ export function CommentCard({
   const isHighlighted =
     pressedEntryId === entry.id ||
     replies.some((r) => r.id === pressedEntryId);
-  // Translucent primary-tinted background while ANY body inside this card
-  // is in text-selection mode. Subtle visual cue that replaces the prior
-  // Done pill — exit is via scroll / tab switch / selecting another body.
-  const selectingId = useCommentSelectStore((s) => s.selectingId);
-  const isSelectingHere =
-    selectingId === entry.id || replies.some((r) => r.id === selectingId);
-
   // Inbox deep-link target inside a resolved thread expands automatically —
   // otherwise tapping a notification would just reveal a bar with no content
   // and force the user to tap again.
@@ -174,7 +166,6 @@ export function CommentCard({
             "bg-surface-1 rounded-xl px-4 py-3 gap-3 border-2 border-transparent transition-colors",
             resolved && "opacity-70",
             isHighlighted && "border-primary/30",
-            isSelectingHere && "bg-primary/5 border-primary/30",
           )}
           style={continuousCorners}
         >
@@ -435,14 +426,6 @@ function CommentBody({
   issueIdentifier: string | undefined;
   onPressChange?: (entryId: string, pressed: boolean) => void;
 }) {
-  // When this comment is the active selection target, drop the long-press
-  // wrapper AND make the markdown selectable — so the next long-press
-  // routes to UIKit's native text-selection magnifier instead of our
-  // gesture handler. Selection mode is exited via the Done pill, scrolling
-  // the timeline, or unmounting the issue screen.
-  const isSelecting = useCommentSelectStore(
-    (s) => s.selectingId === entry.id,
-  );
   const { getName } = useActorLookup();
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
@@ -519,21 +502,14 @@ function CommentBody({
   //     inline-insert).
   // Mirrors web's split: comment-card.tsx:124 `AttachmentList`.
   //
-  // When NOT selecting: long-press fires the native ActionSheetIOS via
-  // useCommentLongPress. Markdown is non-selectable so the long-press
-  // gesture doesn't race UIKit's text selection.
-  //
-  // When selecting: long-press wrapper is gone, markdown is selectable.
-  // The next long-press fires UIKit's native text-selection magnifier
-  // + handles + Copy/Look Up callout. The outer bubble shell carries a
-  // translucent primary-tint background as the mode cue (no Done pill).
-  // Exit: scroll the timeline, leave the issue, or long-press another body.
+  // Long-press fires the native ActionSheetIOS via useCommentLongPress.
+  // Markdown stays non-selectable so its gesture doesn't race ours; partial
+  // copies go through the shared selection sheet instead.
   const longPress = useCommentLongPress(entry, issueId, issueIdentifier);
 
   useEffect(() => {
-    if (isSelecting) return;
     onPressChange?.(entry.id, longPress.isPressed);
-  }, [longPress.isPressed, entry.id, isSelecting, onPressChange]);
+  }, [longPress.isPressed, entry.id, onPressChange]);
 
   if (isDeletedComment(entry)) {
     // Only a deleted thread ROOT reaches this — the card filters deleted
@@ -568,7 +544,7 @@ function CommentBody({
         <Markdown
           content={entry.content}
           attachments={attachments}
-          selectable={isSelecting}
+          selectable={false}
         />
       ) : null}
       <CommentAttachmentList
@@ -590,8 +566,6 @@ function CommentBody({
       )}
     </View>
   );
-
-  if (isSelecting) return body;
 
   return (
     <Pressable onLongPress={longPress.onLongPress} delayLongPress={500}>

@@ -12,7 +12,7 @@
  *     so a singleton store is the right shape.
  *
  * Lifecycle: the issue-detail screen clears the store on unmount (same
- * pattern as `comment-select-store.ts`). Each fresh navigation into an
+ * pattern as the text-selection sheet's store). Each fresh navigation into an
  * issue starts with no reply target, so a stale target can't leak across
  * issues.
  */
