@@ -879,6 +879,20 @@ class ApiClient {
   }
 
   /**
+   * Repeats an issue-linked run. The server replaces an unstarted pending row
+   * for the same issue/agent, so this is the "retry" action for queued work
+   * whose runtime went away — it must not be confused with a bare refresh.
+   * The new task row is fire-and-forget here; the presence snapshot refetch
+   * is what the card renders.
+   */
+  async rerunIssue(issueId: string, taskId?: string): Promise<void> {
+    await this.fetch<void>(`/api/issues/${issueId}/rerun`, {
+      method: "POST",
+      body: JSON.stringify(taskId ? { task_id: taskId } : {}),
+    });
+  }
+
+  /**
    * First page of an agent's run history. The endpoint also returns an
    * `X-Agent-Tasks-Next-Cursor` header; Phase 1 only needs the newest page
    * (active runs + recent tasks), so the cursor is not surfaced yet.

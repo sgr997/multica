@@ -1,4 +1,7 @@
 {
+  "header": {
+    "title": "Collaboration"
+  },
   "list": {
     "search_placeholder": "Search agents",
     "filter_title": "Filter agents",
@@ -6,16 +9,49 @@
     "show_archived": "Show archived",
     "hide_archived": "Hide archived",
     "sections": {
-      "active": "Active",
+      "working": "Working now",
+      "available": "Available",
       "offline": "Offline",
       "archived": "Archived"
     },
-    "empty": "No agents yet",
-    "empty_filtered": "No agents match these filters",
-    "load_failed": "Couldn't load agents: {{message}}",
-    "active_task_count_one": "{{count}} active",
-    "active_task_count_other": "{{count}} active",
+    "summary": "{{live}} available · {{working}} working · {{attention}} need attention",
+    "runtimes_online": "{{online}}/{{total}} runtimes online",
+    "badge": {
+      "running_one": "{{count}} task running",
+      "running_other": "{{count}} tasks running",
+      "working": "Running",
+      "queued_one": "{{count}} queued",
+      "queued_other": "{{count}} queued"
+    },
+    "empty_title": "No agents yet",
+    "empty_description": "Create an agent to take over repetitive work.",
+    "empty_action": "New agent",
+    "empty_filtered_title": "No agents match these filters",
+    "empty_filtered_description": "Clear the filters to see the full roster.",
+    "clear_filters": "Clear filters",
+    "load_failed_title": "Couldn't load collaboration objects",
+    "load_failed_fallback": "Check your connection and try again.",
     "archived_badge": "Archived"
+  },
+  "attention": {
+    "single": "{{name}} has {{count}} tasks waiting for an offline runtime",
+    "multiple": "{{agents}} agents have {{count}} tasks waiting for an offline runtime",
+    "multiple_subtitle": "They resume automatically once their runtime is back, or clear them here.",
+    "runtime_offline": "Runtime offline",
+    "choose_agent": "Choose an agent",
+    "retry": "Retry",
+    "working": "Working…",
+    "cancel": "Cancel tasks",
+    "retry_empty_title": "Nothing to retry",
+    "retry_empty_message": "These tasks are not tied to an issue, so they can't be re-queued from here.",
+    "retry_done_title": "Queued again",
+    "retry_done_message": "Re-queued {{count}} tasks.",
+    "retry_failed_title": "Couldn't retry",
+    "cancel_title": "Cancel waiting tasks?",
+    "cancel_message": "This stops {{count}} queued and running tasks. Queued work won't run when the runtime comes back.",
+    "cancel_confirm": "Cancel tasks",
+    "cancel_failed_title": "Couldn't cancel",
+    "unknown_error": "Unknown error"
   },
   "detail": {
     "load_failed": "Couldn't load this agent.",

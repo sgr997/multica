@@ -1,4 +1,7 @@
 {
+  "header": {
+    "title": "协作"
+  },
   "list": {
     "search_placeholder": "搜索智能体",
     "filter_title": "筛选智能体",
@@ -6,15 +9,47 @@
     "show_archived": "显示已归档",
     "hide_archived": "隐藏已归档",
     "sections": {
-      "active": "活跃",
+      "working": "正在工作",
+      "available": "可用",
       "offline": "离线",
       "archived": "已归档"
     },
-    "empty": "还没有智能体",
-    "empty_filtered": "没有符合筛选条件的智能体",
-    "load_failed": "加载智能体失败：{{message}}",
-    "active_task_count_other": "{{count}} 个进行中",
+    "summary": "{{live}} 个可用 · {{working}} 个运行中 · {{attention}} 个需要处理",
+    "runtimes_online": "{{online}}/{{total}} 运行时在线",
+    "badge": {
+      "running_other": "{{count}} 个任务运行中",
+      "working": "运行中",
+      "queued_other": "{{count}} 个排队"
+    },
+    "empty_title": "还没有智能体",
+    "empty_description": "创建一个智能体处理重复工作。",
+    "empty_action": "新建智能体",
+    "empty_filtered_title": "没有符合筛选条件的智能体",
+    "empty_filtered_description": "清除筛选条件后可查看全部智能体。",
+    "clear_filters": "清除筛选",
+    "load_failed_title": "加载协作对象失败",
+    "load_failed_fallback": "请检查网络后重试。",
     "archived_badge": "已归档"
+  },
+  "attention": {
+    "single": "{{name}} 有 {{count}} 个任务等待离线运行时",
+    "multiple": "{{agents}} 个智能体有 {{count}} 个任务等待离线运行时",
+    "multiple_subtitle": "运行时恢复后会自动继续，也可以在这里先处理。",
+    "runtime_offline": "运行时离线",
+    "choose_agent": "选择智能体",
+    "retry": "重试",
+    "working": "处理中…",
+    "cancel": "取消任务",
+    "retry_empty_title": "没有可重试的任务",
+    "retry_empty_message": "这些任务不属于任何 Issue，无法从这里重新排队。",
+    "retry_done_title": "已重新排队",
+    "retry_done_message": "已重新排队 {{count}} 个任务。",
+    "retry_failed_title": "重试失败",
+    "cancel_title": "取消等待中的任务？",
+    "cancel_message": "将取消 {{count}} 个排队和运行中的任务；排队任务在运行时恢复后不会再执行。",
+    "cancel_confirm": "取消任务",
+    "cancel_failed_title": "取消失败",
+    "unknown_error": "未知错误"
   },
   "detail": {
     "load_failed": "无法加载该智能体。",

@@ -1,4 +1,7 @@
 {
+  "header": {
+    "title": "協作"
+  },
   "list": {
     "search_placeholder": "搜尋智慧體",
     "filter_title": "篩選智慧體",
@@ -6,15 +9,47 @@
     "show_archived": "顯示已封存",
     "hide_archived": "隱藏已封存",
     "sections": {
-      "active": "活躍",
+      "working": "正在工作",
+      "available": "可用",
       "offline": "離線",
       "archived": "已封存"
     },
-    "empty": "還沒有智慧體",
-    "empty_filtered": "沒有符合篩選條件的智慧體",
-    "load_failed": "載入智慧體失敗：{{message}}",
-    "active_task_count_other": "{{count}} 個進行中",
+    "summary": "{{live}} 個可用 · {{working}} 個執行中 · {{attention}} 個需要處理",
+    "runtimes_online": "{{online}}/{{total}} 執行環境在線",
+    "badge": {
+      "running_other": "{{count}} 個任務執行中",
+      "working": "執行中",
+      "queued_other": "{{count}} 個排隊"
+    },
+    "empty_title": "還沒有智慧體",
+    "empty_description": "建立一個智慧體處理重複工作。",
+    "empty_action": "新增智慧體",
+    "empty_filtered_title": "沒有符合篩選條件的智慧體",
+    "empty_filtered_description": "清除篩選條件後可查看全部智慧體。",
+    "clear_filters": "清除篩選",
+    "load_failed_title": "載入協作對象失敗",
+    "load_failed_fallback": "請檢查網路後重試。",
     "archived_badge": "已封存"
+  },
+  "attention": {
+    "single": "{{name}} 有 {{count}} 個任務等待離線執行環境",
+    "multiple": "{{agents}} 個智慧體有 {{count}} 個任務等待離線執行環境",
+    "multiple_subtitle": "執行環境恢復後會自動繼續，也可以在這裡先處理。",
+    "runtime_offline": "執行環境離線",
+    "choose_agent": "選擇智慧體",
+    "retry": "重試",
+    "working": "處理中…",
+    "cancel": "取消任務",
+    "retry_empty_title": "沒有可重試的任務",
+    "retry_empty_message": "這些任務不屬於任何 Issue，無法從這裡重新排隊。",
+    "retry_done_title": "已重新排隊",
+    "retry_done_message": "已重新排隊 {{count}} 個任務。",
+    "retry_failed_title": "重試失敗",
+    "cancel_title": "取消等待中的任務？",
+    "cancel_message": "將取消 {{count}} 個排隊和執行中的任務；排隊任務在執行環境恢復後不會再執行。",
+    "cancel_confirm": "取消任務",
+    "cancel_failed_title": "取消失敗",
+    "unknown_error": "未知錯誤"
   },
   "detail": {
     "load_failed": "無法載入該智慧體。",

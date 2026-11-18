@@ -9,6 +9,7 @@ import {
   filterSquads,
   hasCompleteMemberPreview,
   isSquadInvolved,
+  sortSquads,
   squadsNeedingMemberLookup,
   summarizeSquadStatus,
 } from "./squads";
@@ -305,5 +306,44 @@ describe("summarizeSquadStatus", () => {
 describe("member fixtures", () => {
   it("keeps the helper shape aligned with the API", () => {
     expect(member("agent", "a1").member_type).toBe("agent");
+  });
+});
+
+describe("squad ordering", () => {
+  const working = squad("w", "Working");
+  const idle = squad("i", "Idle");
+  const unstable = squad("u", "Unstable");
+  const offline = squad("o", "Offline");
+  const archived = squad("a", "Archived", {
+    archived_at: "2026-11-01T00:00:00Z",
+  });
+  const presenceByAgent = new Map<string, AgentPresenceDetail>([
+    [working.leader_id, presence({ availability: "online", runningCount: 1 })],
+    [idle.leader_id, presence({ availability: "online" })],
+    [unstable.leader_id, presence({ availability: "unstable" })],
+    [offline.leader_id, presence({ availability: "offline" })],
+    [archived.leader_id, presence({ availability: "online" })],
+  ]);
+
+  it("puts working first and archived last", () => {
+    expect(
+      sortSquads(
+        [archived, offline, idle, unstable, working],
+        presenceByAgent,
+      ).map((s) => s.id),
+    ).toEqual(["w", "i", "u", "o", "a"]);
+  });
+
+  it("sorts ties by name", () => {
+    const zeta = squad("z", "Zeta");
+    const alpha = squad("alpha", "Alpha");
+    const map = new Map<string, AgentPresenceDetail>([
+      [zeta.leader_id, presence({ availability: "online" })],
+      [alpha.leader_id, presence({ availability: "online" })],
+    ]);
+    expect(sortSquads([zeta, alpha], map).map((s) => s.name)).toEqual([
+      "Alpha",
+      "Zeta",
+    ]);
   });
 });

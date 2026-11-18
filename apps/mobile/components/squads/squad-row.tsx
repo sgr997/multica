@@ -22,21 +22,33 @@ interface Props {
   squad: Squad;
   leaderName: string | null;
   status: SquadStatusValue;
+  /** Running tasks for the leader; only meaningful while working. */
+  workingTaskCount?: number;
+  /** Runtime machine label shown on a working row. */
+  runtimeName?: string | null;
   onPress: () => void;
 }
 
-export function SquadRow({ squad, leaderName, status, onPress }: Props) {
+export function SquadRow({
+  squad,
+  leaderName,
+  status,
+  workingTaskCount = 0,
+  runtimeName = null,
+  onPress,
+}: Props) {
   const { t } = useT("squads");
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme];
   const memberCount = squad.member_count ?? 0;
+  const showWork = status === "working" && !squad.archived_at;
 
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={squad.name}
-      className="h-16 flex-row items-center gap-3 px-4 active:bg-secondary"
+      className="min-h-16 flex-row items-center gap-3 px-4 py-2 active:bg-secondary"
     >
       <SquadAvatarStack squad={squad} size={32} />
       <View className="min-w-0 flex-1 justify-center">
@@ -64,6 +76,15 @@ export function SquadRow({ squad, leaderName, status, onPress }: Props) {
             ? ` · 👑 ${leaderName}`
             : ` · ${t("list.no_leader")}`}
         </Text>
+        {showWork ? (
+          <Text
+            className="mt-0.5 text-xs text-muted-foreground"
+            numberOfLines={1}
+          >
+            {t("list.working_tasks", { count: workingTaskCount })}
+            {runtimeName ? ` · ${runtimeName}` : ""}
+          </Text>
+        ) : null}
       </View>
       <SquadStatusLabel status={status} />
       <Ionicons

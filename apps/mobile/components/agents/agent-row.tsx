@@ -1,7 +1,14 @@
 /**
- * One agent in the workspace Agents list. Mirrors the information density of
- * web's agents table row (avatar, name, description, presence, runtime,
- * current workload) without the table chrome phones can't fit.
+ * One agent in the collaboration list.
+ *
+ * The row follows the decision order the page asks the user to make:
+ * name + workload badge, then what the agent does, then the single piece of
+ * runtime metadata that matters in the current state. A working row names
+ * the machine; an idle row only needs the provider and connection label, so
+ * repeated hostnames stop drowning the actual differences.
+ *
+ * Connection health stays on the avatar dot. Workload is always a text
+ * badge — colour alone must not be the only signal for "running".
  */
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,7 +17,11 @@ import type { Agent, RuntimeDevice } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
 import { PresenceDot } from "@/components/ui/presence-dot";
-import { activeTaskCount, effectiveAvailability } from "@/lib/agent-list";
+import {
+  agentRuntimeParts,
+  effectiveAvailability,
+  isArchivedAgent,
+} from "@/lib/agent-list";
 import { useT } from "@/lib/i18n";
 import { THEME } from "@/lib/theme";
 import { useColorScheme } from "@/lib/use-color-scheme";
@@ -33,10 +44,48 @@ export function AgentRow({
 }) {
   const { t } = useT("agents");
   const { colorScheme } = useColorScheme();
-  const archived = !!agent.archived_at;
-  const activeCount = activeTaskCount(presence);
+  const theme = THEME[colorScheme === "dark" ? "dark" : "light"];
+  const archived = isArchivedAgent(agent, presence);
   const availability = effectiveAvailability(agent, presence);
   const workload = presence?.workload ?? "idle";
+  const runningCount = presence?.runningCount ?? 0;
+  const queuedCount = presence?.queuedCount ?? 0;
+  const working = !archived && (workload === "working" || runningCount > 0);
+
+  const badge = archived
+    ? {
+        label: t("list.archived_badge"),
+        className: "bg-muted",
+        text: "text-muted-foreground",
+      }
+    : runningCount > 0
+      ? {
+          label: t("list.badge.running", { count: runningCount }),
+          className: "bg-brand/10",
+          text: "text-brand",
+        }
+      : workload === "working"
+        ? {
+            label: t("list.badge.working"),
+            className: "bg-brand/10",
+            text: "text-brand",
+          }
+        : queuedCount > 0
+          ? {
+              label: t("list.badge.queued", { count: queuedCount }),
+              className: "bg-warning/15",
+              text: "text-warning-foreground",
+            }
+          : null;
+
+  const runtimeParts = agentRuntimeParts(runtime);
+  const runtimeDetail =
+    working || workload === "queued"
+      ? runtimeParts.machine || t(`availability.${availability}`)
+      : t(`availability.${availability}`);
+  const runtimeLine = runtimeParts.provider
+    ? `${runtimeParts.provider} · ${runtimeDetail}`
+    : runtimeDetail;
 
   return (
     <Pressable
@@ -62,13 +111,16 @@ export function AgentRow({
 
       <View className="min-w-0 flex-1 gap-1">
         <View className="flex-row items-center gap-2">
-          <Text className="shrink text-sm font-medium text-foreground" numberOfLines={1}>
+          <Text
+            className="shrink text-[15px] font-semibold text-foreground"
+            numberOfLines={1}
+          >
             {agent.name}
           </Text>
-          {archived ? (
-            <View className="rounded bg-muted px-1.5 py-0.5">
-              <Text className="text-[10px] font-medium text-muted-foreground">
-                {t("list.archived_badge")}
+          {badge ? (
+            <View className={`rounded px-1.5 py-0.5 ${badge.className}`}>
+              <Text className={`text-[10px] font-medium ${badge.text}`}>
+                {badge.label}
               </Text>
             </View>
           ) : null}
@@ -78,35 +130,18 @@ export function AgentRow({
             {agent.description}
           </Text>
         ) : null}
-        <View className="flex-row items-center gap-2">
-          <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-            {archived
-              ? t("availability.archived")
-              : `${t(`availability.${availability}`)} · ${t(`workload.${workload}`)}`}
-          </Text>
-          {runtime ? (
-            <>
-              <Text className="text-xs text-muted-foreground/60">·</Text>
-              <Text className="shrink text-xs text-muted-foreground" numberOfLines={1}>
-                {agentRuntimeLabel(runtime)}
-              </Text>
-            </>
-          ) : null}
-          {activeCount > 0 ? (
-            <>
-              <Text className="text-xs text-muted-foreground/60">·</Text>
-              <Text className="text-xs text-brand">
-                {t("list.active_task_count", { count: activeCount })}
-              </Text>
-            </>
-          ) : null}
-        </View>
+        <Text
+          className="shrink text-xs text-muted-foreground"
+          numberOfLines={1}
+        >
+          {runtimeLine}
+        </Text>
       </View>
 
       <Ionicons
         name="chevron-forward"
         size={15}
-        color={THEME[colorScheme === "dark" ? "dark" : "light"].mutedForeground}
+        color={theme.mutedForeground}
       />
     </Pressable>
   );

@@ -1,13 +1,17 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { AgentPresenceDetail } from "@multica/core/agents";
-import type { Agent } from "@multica/core/types";
+import type { Agent, AgentTask } from "@multica/core/types";
 import {
   activeTaskCount,
+  agentRuntimeParts,
+  collectAttention,
   countArchived,
   effectiveAvailability,
   groupAgents,
   isArchivedAgent,
+  needsAttention,
+  summarizeAgents,
 } from "./agent-list";
 
 function agent(overrides: Partial<Agent> & Pick<Agent, "id">): Agent {
@@ -52,6 +56,15 @@ function presence(
   };
 }
 
+function task(id: string, agentId: string, status = "queued"): AgentTask {
+  return {
+    id,
+    agent_id: agentId,
+    issue_id: `issue-${id}`,
+    status,
+  } as AgentTask;
+}
+
 describe("agent list grouping", () => {
   const agents = [
     agent({ id: "zed", name: "Zed", runtime_id: "rt-2" }),
@@ -66,18 +79,20 @@ describe("agent list grouping", () => {
     ["old", presence("unstable", 0, 2)],
   ]);
 
-  it("orders active, offline, archived and hides archived by default", () => {
+  it("orders working, available, offline, archived and hides archived by default", () => {
     const sections = groupAgents(agents, presenceByAgent, {
       query: "",
       runtimeId: null,
       showArchived: false,
     });
     expect(sections.map((section) => section.key)).toEqual([
-      "active",
+      "working",
+      "available",
       "offline",
     ]);
-    expect(sections[0].agents.map((a) => a.id)).toEqual(["old", "zed"]);
-    expect(sections[1].agents.map((a) => a.id)).toEqual(["alpha"]);
+    expect(sections[0].agents.map((a) => a.id)).toEqual(["zed"]);
+    expect(sections[1].agents.map((a) => a.id)).toEqual(["old"]);
+    expect(sections[2].agents.map((a) => a.id)).toEqual(["alpha"]);
   });
 
   it("shows archived last when enabled", () => {
@@ -87,11 +102,12 @@ describe("agent list grouping", () => {
       showArchived: true,
     });
     expect(sections.map((section) => section.key)).toEqual([
-      "active",
+      "working",
+      "available",
       "offline",
       "archived",
     ]);
-    expect(sections[2].agents.map((a) => a.id)).toEqual(["arch"]);
+    expect(sections[3].agents.map((a) => a.id)).toEqual(["arch"]);
   });
 
   it("filters by name/description and runtime", () => {
@@ -145,5 +161,90 @@ describe("agent list grouping", () => {
   it("counts running plus queued tasks as active", () => {
     expect(activeTaskCount(presence("online", 2, 3))).toBe(5);
     expect(activeTaskCount(undefined)).toBe(0);
+  });
+});
+
+describe("needs-attention rule", () => {
+  const idle = agent({ id: "idle", name: "Idle" });
+
+  it("flags queued work on an unreachable runtime only", () => {
+    expect(needsAttention(idle, presence("offline", 0, 2))).toBe(true);
+    expect(needsAttention(idle, presence("unstable", 0, 1))).toBe(true);
+    expect(needsAttention(idle, presence("online", 0, 2))).toBe(false);
+    expect(needsAttention(idle, presence("offline", 0, 0))).toBe(false);
+    expect(needsAttention(idle, undefined)).toBe(false);
+  });
+
+  it("never flags an archived agent with stale queued presence", () => {
+    expect(
+      needsAttention(
+        agent({ id: "arch", name: "Arch", archived_at: "2026-11-01T00:00:00Z" }),
+        presence("offline", 0, 3),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("summary counts", () => {
+  const agents = [
+    agent({ id: "run", name: "Run" }),
+    agent({ id: "idle", name: "Idle" }),
+    agent({ id: "off", name: "Off" }),
+    agent({ id: "arch", name: "Arch", archived_at: "2026-11-01T00:00:00Z" }),
+  ];
+  const presenceByAgent = new Map<string, AgentPresenceDetail>([
+    ["run", presence("online", 2, 1)],
+    ["idle", presence("online")],
+    ["off", presence("offline", 0, 2)],
+    ["arch", presence("online")],
+  ]);
+
+  it("counts live, working and attention without archived rows", () => {
+    expect(summarizeAgents(agents, presenceByAgent)).toEqual({
+      live: 2,
+      working: 1,
+      attention: 1,
+    });
+  });
+});
+
+describe("attention entries", () => {
+  const agents = [
+    agent({ id: "a1", name: "Alpha" }),
+    agent({ id: "a2", name: "Beta" }),
+  ];
+  const presenceByAgent = new Map<string, AgentPresenceDetail>([
+    ["a1", presence("offline", 0, 2)],
+    ["a2", presence("offline", 0, 3)],
+  ]);
+
+  it("groups queued tasks per agent, largest backlog first", () => {
+    const entries = collectAttention(
+      agents,
+      [task("t1", "a1"), task("t2", "a1", "running"), task("t3", "a2")],
+      presenceByAgent,
+    );
+    expect(entries.map((entry) => entry.agent.id)).toEqual(["a2", "a1"]);
+    expect(entries[0].count).toBe(3);
+    expect(entries[1].tasks.map((t) => t.id)).toEqual(["t1"]);
+  });
+});
+
+describe("runtime parts", () => {
+  it("capitalizes the provider and prefers the custom machine name", () => {
+    expect(
+      agentRuntimeParts({
+        provider: "codex",
+        name: "PeiMac-mini.local",
+        custom_name: "Build box",
+      }),
+    ).toEqual({ provider: "Codex", machine: "Build box" });
+  });
+
+  it("falls back to the runtime name and survives a missing runtime", () => {
+    expect(
+      agentRuntimeParts({ provider: "claude", name: "Studio" }),
+    ).toEqual({ provider: "Claude", machine: "Studio" });
+    expect(agentRuntimeParts(null)).toEqual({ provider: "", machine: "" });
   });
 });

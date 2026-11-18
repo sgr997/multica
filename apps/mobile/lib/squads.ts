@@ -177,6 +177,40 @@ export function summarizeSquadStatus(
   return "offline";
 }
 
+const SQUAD_STATUS_ORDER: Record<SquadStatusSummary | "archived", number> = {
+  working: 0,
+  idle: 1,
+  unstable: 2,
+  offline: 3,
+  archived: 4,
+};
+
+export function squadStatusRank(
+  squad: Pick<Squad, "archived_at">,
+  leaderPresence: AgentPresenceDetail | undefined,
+): number {
+  if (squad.archived_at) return SQUAD_STATUS_ORDER.archived;
+  return SQUAD_STATUS_ORDER[summarizeSquadStatus(leaderPresence)];
+}
+
+/**
+ * Working squads first, then idle, unstable, offline, and archived last.
+ * Archived rows used to sort merely "after live rows" by a boolean, which
+ * still mixed offline squads above usable ones. Ties fall back to name so
+ * the order never jitters between refreshes.
+ */
+export function sortSquads(
+  squads: readonly Squad[],
+  presenceByAgent: ReadonlyMap<string, AgentPresenceDetail>,
+): Squad[] {
+  return [...squads].sort((a, b) => {
+    const rankA = squadStatusRank(a, presenceByAgent.get(a.leader_id));
+    const rankB = squadStatusRank(b, presenceByAgent.get(b.leader_id));
+    if (rankA !== rankB) return rankA - rankB;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export function squadLeader(
   agents: readonly Agent[],
   squad: Pick<Squad, "leader_id">,
