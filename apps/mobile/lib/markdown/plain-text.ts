@@ -14,8 +14,20 @@ export function markdownToPlainText(markdown: string): string {
 
   let text = markdown.replace(/\r\n?/g, "\n");
 
-  // Fenced code blocks: drop the fence lines, keep the code verbatim.
-  text = text.replace(/^[ \t]*(```|~~~)[^\n]*$/gm, "");
+  // Protect code from the prose transforms below so a line like `- item` or
+  // `**x**` survives byte-for-byte.
+  const codeBlocks: string[] = [];
+  const park = (code: string) => {
+    codeBlocks.push(code);
+    return `\u0000CODE${codeBlocks.length - 1}\u0000`;
+  };
+  text = text.replace(
+    /^[ \t]*(```|~~~)[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm,
+    (_match, _fence, code: string) => park(code.replace(/\n$/, "")),
+  );
+  text = text.replace(/`+([^`\n]+)`+/g, (_match, code: string) =>
+    park(code),
+  );
 
   // HTML that can show up in legacy rows. `<br>` is a line break; every other
   // tag is noise.
@@ -42,7 +54,6 @@ export function markdownToPlainText(markdown: string): string {
 
   // Inline syntax.
   text = text
-    .replace(/`+([^`]+)`+/g, "$1")
     .replace(/(\*\*|__)(.+?)\1/g, "$2")
     .replace(/~~(.+?)~~/g, "$1")
     .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1$2")
@@ -51,8 +62,12 @@ export function markdownToPlainText(markdown: string): string {
   // Unescape the backslash escapes CommonMark allows for punctuation.
   text = text.replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, "$1");
 
-  return text
+  text = text
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  return text.replace(/\u0000CODE(\d+)\u0000/g, (_match, index: string) =>
+    codeBlocks[Number(index)] ?? "",
+  );
 }

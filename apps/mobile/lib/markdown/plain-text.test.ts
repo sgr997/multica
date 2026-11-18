@@ -22,6 +22,11 @@ describe("markdownToPlainText", () => {
     );
   });
 
+  it("copies code verbatim, without list or emphasis rewriting", () => {
+    expect(markdownToPlainText("```\n- a **b**\n```")).toBe("- a **b**");
+    expect(markdownToPlainText("use `a * b` here")).toBe("use a * b here");
+  });
+
   it("turns headings, quotes and lists into readable lines", () => {
     expect(markdownToPlainText("## Plan\n> quote\n- one\n- two")).toBe(
       "Plan\nquote\n• one\n• two",
