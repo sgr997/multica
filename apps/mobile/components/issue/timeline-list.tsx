@@ -805,7 +805,11 @@ export function TimelineList({
   return (
     <ImageSequenceProvider blocks={imageBlocks}>
     <View className="flex-1">
-      <Pressable onLayout={handleLayout} style={{ flex: 1 }}>
+      {/* Plain View, not Pressable: this wrapper only exists to measure the
+          list viewport. An enabled Pressable around the FlashList competes
+          with its pan gesture, and the timeline stops scrolling while the
+          out-of-list "back to latest" chip keeps working (ZXP-36). */}
+      <View onLayout={handleLayout} style={{ flex: 1 }}>
       <FlashList
         ref={listRef}
         data={dataWithDivider}
@@ -897,7 +901,7 @@ export function TimelineList({
         }
         contentContainerStyle={{ paddingBottom: 16 }}
       />
-      </Pressable>
+      </View>
       {showJumpToLatest || newCount > 0 ? (
         <JumpToLatestChip count={newCount} onPress={onJumpToNew} />
       ) : null}
