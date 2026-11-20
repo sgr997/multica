@@ -367,7 +367,7 @@ export default function WorkspaceLayout() {
         />
         <Stack.Screen
           name="squad/new-picker/members"
-          options={SHEET_OPTIONS}
+          options={{ ...SHEET_OPTIONS, headerShown: true }}
         />
         <Stack.Screen
           name="squad/[id]"
@@ -384,7 +384,13 @@ export default function WorkspaceLayout() {
             headerLeft: () => <ModalCloseButton />,
           }}
         />
-        <Stack.Screen name="squad/[id]/add-member" options={SHEET_OPTIONS} />
+        {/* Member pickers use the native sheet header: the body-rendered
+            title row collided with the grabber at the 0.6 detent and its
+            submit button was clipped out of view (ZXP-36). */}
+        <Stack.Screen
+          name="squad/[id]/add-member"
+          options={{ ...SHEET_OPTIONS, headerShown: true }}
+        />
         <Stack.Screen
           name="agent/new"
           options={{

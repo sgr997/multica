@@ -13,13 +13,14 @@ import {
   SectionList,
   View,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import type { Agent, MemberWithUser } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
-import { TextField } from "@/components/ui/text-field";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
+import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { squadMembersOptions } from "@/data/queries/squads";
 import { agentListOptions } from "@/data/queries/agents";
 import { memberListOptions } from "@/data/queries/members";
@@ -34,6 +35,7 @@ import {
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
+import { useNativeSearchBar } from "@/lib/use-native-search-bar";
 
 type Row =
   | { kind: "member"; member: MemberWithUser }
@@ -51,7 +53,8 @@ export default function AddSquadMemberScreen() {
   const { t } = useT("squads");
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme];
-  const [query, setQuery] = useState("");
+  const insets = useSafeAreaInsets();
+  const query = useNativeSearchBar(t("member_picker.search_placeholder"));
   const [selected, setSelected] = useState<SquadMemberKey[]>([]);
 
   const roster = useQuery(squadMembersOptions(wsId, id));
@@ -137,38 +140,35 @@ export default function AddSquadMemberScreen() {
 
   return (
     <View className="flex-1">
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-4">
-        <Text className="text-base font-semibold text-foreground">
-          {t("member_picker.title")}
-        </Text>
-        <Pressable
-          onPress={submit}
-          disabled={addMembers.isPending}
-          hitSlop={6}
-          className="px-3 py-1.5 active:bg-secondary rounded-md"
-        >
-          <Text className="text-sm font-semibold text-primary">
-            {addMembers.isPending
-              ? t("common:states.saving")
-              : selected.length > 0
-                ? t("member_picker.done") +
-                  ` (${selected.length})`
-                : t("member_picker.done")}
-          </Text>
-        </Pressable>
-      </View>
-
-      <View className="px-4 pb-2">
-        <TextField
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t("member_picker.search_placeholder")}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-      </View>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t("member_picker.title"),
+          headerLeft: () => <ModalCloseButton />,
+          headerRight: () => (
+            <Pressable
+              onPress={submit}
+              disabled={addMembers.isPending}
+              hitSlop={8}
+              accessibilityRole="button"
+              className={
+                addMembers.isPending
+                  ? "px-1 py-1 opacity-40"
+                  : "px-1 py-1 active:opacity-60"
+              }
+            >
+              <Text className="text-base font-semibold text-brand">
+                {addMembers.isPending
+                  ? t("common:states.saving")
+                  : selected.length > 0
+                    ? t("member_picker.done") +
+                      ` (${selected.length})`
+                    : t("member_picker.done")}
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
 
       {roster.isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -184,7 +184,7 @@ export default function AddSquadMemberScreen() {
           }
           stickySectionHeadersEnabled={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="pb-8"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           renderSectionHeader={({ section }) => (
             <Text className="bg-background px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {section.title}

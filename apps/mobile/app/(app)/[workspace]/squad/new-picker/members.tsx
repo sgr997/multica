@@ -10,13 +10,14 @@ import {
   SectionList,
   View,
 } from "react-native";
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import type { Agent, MemberWithUser } from "@multica/core/types";
 import { Text } from "@/components/ui/text";
-import { TextField } from "@/components/ui/text-field";
 import { ActorAvatar } from "@/components/ui/actor-avatar";
+import { ModalCloseButton } from "@/components/ui/modal-close-button";
 import { agentListOptions } from "@/data/queries/agents";
 import { memberListOptions } from "@/data/queries/members";
 import { useNewSquadDraftStore } from "@/data/stores/new-squad-draft-store";
@@ -25,6 +26,7 @@ import { squadMemberKey, type SquadMemberKey } from "@/lib/squads";
 import { useColorScheme } from "@/lib/use-color-scheme";
 import { THEME } from "@/lib/theme";
 import { useT } from "@/lib/i18n";
+import { useNativeSearchBar } from "@/lib/use-native-search-bar";
 
 type Row =
   | { kind: "member"; member: MemberWithUser }
@@ -35,10 +37,11 @@ export default function NewSquadMembersPicker() {
   const { t } = useT("squads");
   const { colorScheme } = useColorScheme();
   const theme = THEME[colorScheme];
+  const insets = useSafeAreaInsets();
   const draftMembers = useNewSquadDraftStore((s) => s.members);
   const setMembers = useNewSquadDraftStore((s) => s.setMembers);
   const [selected, setSelected] = useState<SquadMemberKey[]>(draftMembers);
-  const [query, setQuery] = useState("");
+  const query = useNativeSearchBar(t("member_picker.search_placeholder"));
 
   const { data: members = [], isLoading: membersLoading } = useQuery(
     memberListOptions(wsId),
@@ -110,33 +113,27 @@ export default function NewSquadMembersPicker() {
 
   return (
     <View className="flex-1">
-      <View className="flex-row items-center justify-between px-4 pb-2 pt-4">
-        <Text className="text-base font-semibold text-foreground">
-          {t("form.members")}
-        </Text>
-        <Pressable
-          onPress={done}
-          hitSlop={6}
-          className="rounded-md px-3 py-1.5 active:bg-secondary"
-        >
-          <Text className="text-sm font-semibold text-primary">
-            {selected.length > 0
-              ? t("member_picker.done") + ` (${selected.length})`
-              : t("member_picker.done")}
-          </Text>
-        </Pressable>
-      </View>
-      <View className="px-4 pb-2">
-        <TextField
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t("member_picker.search_placeholder")}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-      </View>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: t("form.members"),
+          headerLeft: () => <ModalCloseButton />,
+          headerRight: () => (
+            <Pressable
+              onPress={done}
+              hitSlop={8}
+              accessibilityRole="button"
+              className="px-1 py-1 active:opacity-60"
+            >
+              <Text className="text-base font-semibold text-brand">
+                {selected.length > 0
+                  ? t("member_picker.done") + ` (${selected.length})`
+                  : t("member_picker.done")}
+              </Text>
+            </Pressable>
+          ),
+        }}
+      />
       {loading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
@@ -151,7 +148,7 @@ export default function NewSquadMembersPicker() {
           }
           stickySectionHeadersEnabled={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerClassName="pb-8"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           renderSectionHeader={({ section }) => (
             <Text className="bg-background px-4 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {section.title}
